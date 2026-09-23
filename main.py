@@ -47,21 +47,21 @@ try:
             self.screen = MDScreen()
             layout = MDBoxLayout(orientation='vertical')
             
-            # ¶¥²¿µ¼º½À¸
+            # é¡¶éƒ¨å¯¼èˆªæ 
             self.toolbar = MDTopAppBar(
-                title="ºş±±¾­µäÒôÀÖ¹ã²¥ (½ñÌì)",
+                title="æ¹–åŒ—ç»å…¸éŸ³ä¹å¹¿æ’­ (ä»Šå¤©)",
                 elevation=4,
                 right_action_items=[["calendar", lambda x: self.open_date_menu(x)]]
             )
             layout.add_widget(self.toolbar)
             
-            # ½ÚÄ¿ÁĞ±í
+            # èŠ‚ç›®åˆ—è¡¨
             scroll = ScrollView()
             self.list_view = MDList()
             scroll.add_widget(self.list_view)
             layout.add_widget(scroll)
             
-            # µ×²¿¿ØÖÆÌ¨
+            # åº•éƒ¨æ§åˆ¶å°
             control_card = MDCard(
                 size_hint=(1, None), 
                 height="80dp", 
@@ -72,14 +72,14 @@ try:
             )
             
             self.status_label = MDLabel(
-                text="×¼±¸¾ÍĞ÷", 
+                text="å‡†å¤‡å°±ç»ª", 
                 halign="left", 
                 theme_text_color="Secondary",
                 size_hint_x=1
             )
             control_card.add_widget(self.status_label)
             
-            # ²¥·Å¿ØÖÆ
+            # æ’­æ”¾æ§åˆ¶
             self.play_btn = MDFloatingActionButton(
                 icon="play", 
                 md_bg_color=self.theme_cls.primary_color,
@@ -87,7 +87,7 @@ try:
             )
             control_card.add_widget(self.play_btn)
             
-            # ÏÂÔØ/»º´æ°´Å¥
+            # ä¸‹è½½/ç¼“å­˜æŒ‰é’®
             self.download_btn = MDFloatingActionButton(
                 icon="download", 
                 md_bg_color=self.theme_cls.accent_color,
@@ -100,19 +100,19 @@ try:
             
             self.init_date_menu()
             
-            # Ê×´Î¼ÓÔØ½ñÌìÊı¾İ
+            # é¦–æ¬¡åŠ è½½ä»Šå¤©æ•°æ®
             Clock.schedule_once(lambda dt: self.load_schedule(self.current_date), 0.5)
             
             return self.screen
 
         def init_date_menu(self):
             menu_items = []
-            weekdays = ["ÖÜÒ»", "ÖÜ¶ş", "ÖÜÈı", "ÖÜËÄ", "ÖÜÎå", "ÖÜÁù", "ÖÜÈÕ"]
+            weekdays = ["å‘¨ä¸€", "å‘¨äºŒ", "å‘¨ä¸‰", "å‘¨å››", "å‘¨äº”", "å‘¨å…­", "å‘¨æ—¥"]
             for i in range(30):
                 d = datetime.now() - timedelta(days=i)
                 label = f"{d.strftime('%Y-%m-%d')} ({weekdays[d.weekday()]})"
-                if i == 0: label = f"{d.strftime('%Y-%m-%d')} (½ñÌì)"
-                if i == 1: label = f"{d.strftime('%Y-%m-%d')} (×òÌì)"
+                if i == 0: label = f"{d.strftime('%Y-%m-%d')} (ä»Šå¤©)"
+                if i == 1: label = f"{d.strftime('%Y-%m-%d')} (æ˜¨å¤©)"
                 
                 menu_items.append({
                     "text": label,
@@ -133,11 +133,11 @@ try:
             self.menu.dismiss()
             self.current_date = date_str
             date_label = label.split()[1] if " " in label else label
-            self.toolbar.title = f"ºş±±¾­µäÒôÀÖ¹ã²¥ {date_label}"
+            self.toolbar.title = f"æ¹–åŒ—ç»å…¸éŸ³ä¹å¹¿æ’­ {date_label}"
             self.load_schedule(date_str)
 
         def load_schedule(self, date_str):
-            self.status_label.text = "ÕıÔÚ»ñÈ¡½ÚÄ¿µ¥..."
+            self.status_label.text = "æ­£åœ¨è·å–èŠ‚ç›®å•..."
             
             def _fetch():
                 data = get_daily_schedule(date_str)
@@ -151,58 +151,58 @@ try:
             self.list_view.clear_widgets()
             
             if not data:
-                self.status_label.text = "»ñÈ¡Ê§°Ü"
+                self.status_label.text = "è·å–å¤±è´¥"
                 return
                 
             for prog in data:
                 item = TwoLineListItem(
                     text=f"{prog['time']} - {prog['title']}",
-                    secondary_text=f"Ö÷³Ö: {prog['host']}",
+                    secondary_text=f"ä¸»æŒ: {prog['host']}",
                     on_release=lambda x, p=prog: self.on_program_select(p)
                 )
                 self.list_view.add_widget(item)
                 
-            self.status_label.text = "½ÚÄ¿µ¥¼ÓÔØÍê³É"
+            self.status_label.text = "èŠ‚ç›®å•åŠ è½½å®Œæˆ"
 
         def on_program_select(self, prog):
             self.selected_program = prog
-            self.status_label.text = f"ÒÑÑ¡ÖĞ: {prog['title']}"
+            self.status_label.text = f"å·²é€‰ä¸­: {prog['title']}"
 
         def toggle_play(self, instance):
             if self.player.is_playing():
                 self.player.stop()
                 self.play_btn.icon = "play"
-                self.status_label.text = "ÒÑÍ£Ö¹²¥·Å"
+                self.status_label.text = "å·²åœæ­¢æ’­æ”¾"
                 return
                 
-            # ²¥·ÅÂß¼­
+            # æ’­æ”¾é€»è¾‘
             if not self.selected_program:
-                self.status_label.text = "ÇëÏÈÑ¡ÔñÒ»¸ö½ÚÄ¿£¡"
+                self.status_label.text = "è¯·å…ˆé€‰æ‹©ä¸€ä¸ªèŠ‚ç›®ï¼"
                 return
                 
-            # Èç¹ûÑ¡ÖĞµÄÊÇÒÔÇ°µÄ½ÚÄ¿£¬²¢ÇÒÃ»ÓĞID£¬ËµÃ÷ÊÇ¹Ì»¯Êı¾İ
+            # å¦‚æœé€‰ä¸­çš„æ˜¯ä»¥å‰çš„èŠ‚ç›®ï¼Œå¹¶ä¸”æ²¡æœ‰IDï¼Œè¯´æ˜æ˜¯å›ºåŒ–æ•°æ®
             if self.current_date != datetime.now().strftime('%Y-%m-%d') and not self.selected_program.get('id'):
-                self.status_label.text = "ÀëÏßÊı¾İÎŞ·¨²¥·Å»Ø·Å£¡"
+                self.status_label.text = "ç¦»çº¿æ•°æ®æ— æ³•æ’­æ”¾å›æ”¾ï¼"
                 return
                 
             prog_id = self.selected_program.get('id')
             if prog_id:
-                # ²¥·Å»Ø·Å
+                # æ’­æ”¾å›æ”¾
                 yyyymm = self.current_date.replace("-", "")[:6]
                 replay_url = f"https://fs.hbfm.hbi.tv/recorder/jdyy/{yyyymm}/{prog_id}.mp3"
                 
-                self.status_label.text = f"ÕıÔÚ»º³å»Ø·Å: {self.selected_program['title']}..."
+                self.status_label.text = f"æ­£åœ¨ç¼“å†²å›æ”¾: {self.selected_program['title']}..."
                 self.player.play(replay_url)
                 self.play_btn.icon = "stop"
             else:
-                # ²¥·ÅÖ±²¥ (½ñÌì²¢ÇÒÃ»ÓĞÓĞĞ§id£¬»òÕßÊÇÕıÔÚÖ±²¥µÄ)
-                self.status_label.text = "ÕıÔÚÁ¬½ÓÖ±²¥Ô´..."
+                # æ’­æ”¾ç›´æ’­ (ä»Šå¤©å¹¶ä¸”æ²¡æœ‰æœ‰æ•ˆidï¼Œæˆ–è€…æ˜¯æ­£åœ¨ç›´æ’­çš„)
+                self.status_label.text = "æ­£åœ¨è¿æ¥ç›´æ’­æº..."
                 self.player.play("https://fs.hbfm.hbi.tv/live/jdyy.m3u8")
                 self.play_btn.icon = "stop"
 
         def start_cache_or_record(self, instance):
             if not self.selected_program:
-                self.status_label.text = "ÇëÏÈÑ¡ÔñÒªÏÂÔØµÄ½ÚÄ¿£¡"
+                self.status_label.text = "è¯·å…ˆé€‰æ‹©è¦ä¸‹è½½çš„èŠ‚ç›®ï¼"
                 return
                 
             prog_id = self.selected_program.get('id')
@@ -216,36 +216,36 @@ try:
             os.makedirs(save_dir, exist_ok=True)
             
             if prog_id:
-                # ÏÂÔØ»Ø·Å MP3
+                # ä¸‹è½½å›æ”¾ MP3
                 yyyymm = self.current_date.replace("-", "")[:6]
                 url = f"https://fs.hbfm.hbi.tv/recorder/jdyy/{yyyymm}/{prog_id}.mp3"
                 filename = f"{self.current_date}_{self.selected_program['title']}.mp3"
                 self.download_file_bg(url, os.path.join(save_dir, filename))
             else:
-                # Â¼ÖÆÖ±²¥
+                # å½•åˆ¶ç›´æ’­
                 if self.live_recorder and self.live_recorder.is_recording:
                     self.live_recorder.stop()
                     self.live_recorder = None
                     self.download_btn.icon = "download"
-                    self.status_label.text = "Ö±²¥Â¼ÖÆÒÑ±£´æ£¡"
+                    self.status_label.text = "ç›´æ’­å½•åˆ¶å·²ä¿å­˜ï¼"
                 else:
                     url = "https://fs.hbfm.hbi.tv/live/jdyy.m3u8"
                     filename = f"LiveRecord_{datetime.now().strftime('%Y%m%d_%H%M%S')}.ts"
                     self.live_recorder = HLSRecorder(url, os.path.join(save_dir, filename))
                     self.live_recorder.start()
                     self.download_btn.icon = "stop-circle"
-                    self.status_label.text = f"ÕıÔÚÂ¼ÖÆÖ±²¥...\n±£´æÖÁ: {filename}"
+                    self.status_label.text = f"æ­£åœ¨å½•åˆ¶ç›´æ’­...\nä¿å­˜è‡³: {filename}"
 
         def download_file_bg(self, url, save_path):
             filename = os.path.basename(save_path)
-            self.status_label.text = f"¿ªÊ¼¼«ËÙ»º´æ: {filename}..."
+            self.status_label.text = f"å¼€å§‹æé€Ÿç¼“å­˜: {filename}..."
             
             def _download():
                 try:
                     urllib.request.urlretrieve(url, save_path)
-                    self.update_status_safe(f"ÏÂÔØ³É¹¦£¡\nÒÑ±£´æÖÁ: {save_path}")
+                    self.update_status_safe(f"ä¸‹è½½æˆåŠŸï¼\nå·²ä¿å­˜è‡³: {save_path}")
                 except Exception as e:
-                    self.update_status_safe(f"ÏÂÔØÊ§°Ü: {e}")
+                    self.update_status_safe(f"ä¸‹è½½å¤±è´¥: {e}")
                     
             threading.Thread(target=_download, daemon=True).start()
 
@@ -258,7 +258,7 @@ try:
 
 except Exception as e:
     err = traceback.format_exc()
-    # ³¢ÊÔĞ´ÈëÊÖ»ú°²È«Ä¿Â¼
+    # å°è¯•å†™å…¥æ‰‹æœºå®‰å…¨ç›®å½•
     try:
         from jnius import autoclass
         PythonActivity = autoclass('org.kivy.android.PythonActivity')
@@ -275,8 +275,8 @@ except Exception as e:
 
     class ErrorApp(App):
         def build(self):
-            Window.clearcolor = (0.5, 0, 0, 1) # ÉîºìÉ«±³¾°
-            # Ëõ·Å×ÖÌåÒÔÈ·±£´ó²¿·ÖÄÚÈİ¿É¼û
+            Window.clearcolor = (0.5, 0, 0, 1) # æ·±çº¢è‰²èƒŒæ™¯
+            # ç¼©æ”¾å­—ä½“ä»¥ç¡®ä¿å¤§éƒ¨åˆ†å†…å®¹å¯è§
             return Label(text=err, text_size=(Window.width * 0.9, None), halign='left', valign='top', font_size='10sp')
 
     if __name__ == "__main__":
