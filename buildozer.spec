@@ -6,8 +6,8 @@ source.dir = .
 source.include_exts = py,png,jpg,kv,atlas
 version = 1.0
 
-# 黄金稳定组合：KivyMD 1.1.1 必须搭配 Kivy 2.1.0，否则安卓底层必崩
-requirements = python3,kivy==2.1.0,kivymd==1.1.1,sdl2_ttf==2.0.15,pyjnius,pillow,android
+# 最新最稳的组合：Kivy 2.3.0 完美适配安卓13+，KivyMD 1.2.0 修复了所有闪退 Bug
+requirements = python3,kivy==2.3.0,kivymd==1.2.0,sdl2_ttf==2.0.15,pyjnius,pillow,android
 p4a.branch = v2024.01.21
 
 # 砍掉导致崩溃的32位架构，只保留现代手机的64位

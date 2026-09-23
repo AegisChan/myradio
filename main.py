@@ -256,28 +256,51 @@ try:
     if __name__ == "__main__":
         RadioApp().run()
 
-except Exception as e:
+except BaseException as e:
+    # 捕获一切级别的异常 (包括 SystemExit)，确保没有任何遗漏
     err = traceback.format_exc()
-    # 尝试写入手机安全目录
+    
+    # 1. 尝试网络发送到剪贴板，返回 URL
+    err_url = ""
     try:
-        from jnius import autoclass
-        PythonActivity = autoclass('org.kivy.android.PythonActivity')
-        context = PythonActivity.mActivity
-        ext_dir = context.getExternalFilesDir(None).getAbsolutePath()
-        with open(ext_dir + "/crash.txt", "w") as f:
-            f.write(err)
+        import socket
+        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        s.settimeout(3)
+        s.connect(("termbin.com", 9999))
+        s.sendall(err.encode('utf-8'))
+        err_url = s.recv(1024).decode('utf-8').strip()
+        s.close()
     except Exception:
         pass
 
-    from kivy.app import App
-    from kivy.uix.label import Label
-    from kivy.core.window import Window
+    # 2. 尝试使用安卓原生 Toast 弹出包含 URL 或基础错误的信息
+    try:
+        from jnius import autoclass
+        from android.runnable import run_on_ui_thread
+        PythonActivity = autoclass('org.kivy.android.PythonActivity')
+        Toast = autoclass('android.widget.Toast')
+        String = autoclass('java.lang.String')
+        context = PythonActivity.mActivity
+        
+        @run_on_ui_thread
+        def _show():
+            msg = f"Crash logs sent to: {err_url}" if err_url else "Crash network failed!"
+            Toast.makeText(context, String(msg), Toast.LENGTH_LONG).show()
+            Toast.makeText(context, String(msg), Toast.LENGTH_LONG).show()
+        _show()
+    except Exception:
+        pass
 
-    class ErrorApp(App):
-        def build(self):
-            Window.clearcolor = (0.5, 0, 0, 1) # 深红色背景
-            # 缩放字体以确保大部分内容可见
-            return Label(text=err, text_size=(Window.width * 0.9, None), halign='left', valign='top', font_size='10sp')
-
-    if __name__ == "__main__":
-        ErrorApp().run()
+    # 3. 如果 Kivy 图形界面还能用，尝试红色报错页面兜底
+    try:
+        from kivy.app import App
+        from kivy.uix.label import Label
+        from kivy.core.window import Window
+        class ErrorApp(App):
+            def build(self):
+                Window.clearcolor = (0.5, 0, 0, 1) # 深红色背景
+                return Label(text=err, text_size=(Window.width * 0.9, None), halign='left', valign='top', font_size='10sp')
+        if __name__ == "__main__":
+            ErrorApp().run()
+    except Exception:
+        pass
