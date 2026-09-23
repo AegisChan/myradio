@@ -1,256 +1,283 @@
-from kivymd.app import MDApp
-from kivymd.uix.screen import MDScreen
-from kivymd.uix.boxlayout import MDBoxLayout
-from kivymd.uix.toolbar import MDTopAppBar
-from kivymd.uix.list import MDList, TwoLineListItem
-from kivymd.uix.menu import MDDropdownMenu
-from kivymd.uix.button import MDFloatingActionButton
-from kivymd.uix.label import MDLabel
-from kivymd.uix.card import MDCard
-from kivy.uix.scrollview import ScrollView
-from kivy.clock import Clock
-from kivy.clock import mainthread
-from kivy.core.window import Window
+import traceback
 
-from datetime import datetime, timedelta
-import threading
-import os
-import urllib.request
-import ssl
-ssl._create_default_https_context = ssl._create_unverified_context
-
-from radio_api import get_daily_schedule
-from android_player import get_player
-from hls_recorder import HLSRecorder
-
-class RadioApp(MDApp):
-    def build(self):
-        try:
-            from android.permissions import request_permissions, Permission
-            request_permissions([Permission.INTERNET, Permission.READ_EXTERNAL_STORAGE, Permission.WRITE_EXTERNAL_STORAGE])
-        except Exception:
-            pass
-
-        self.theme_cls.theme_style = "Dark"
-        self.theme_cls.primary_palette = "BlueGray"
-        self.theme_cls.accent_palette = "Teal"
-        
-        self.player = get_player()
-        self.live_recorder = None
-        self.current_date = datetime.now().strftime('%Y-%m-%d')
-        self.schedule_data = []
-        self.selected_program = None
-        
-        self.screen = MDScreen()
-        layout = MDBoxLayout(orientation='vertical')
-        
-        # é¡¶éƒ¨å¯¼èˆªæ 
-        self.toolbar = MDTopAppBar(
-            title="æ¹–åŒ—ç»å…¸éŸ³ä¹å¹¿æ’­ (ä»Šå¤©)",
-            elevation=4,
-            right_action_items=[["calendar", lambda x: self.open_date_menu(x)]]
-        )
-        layout.add_widget(self.toolbar)
-        
-        # èŠ‚ç›®åˆ—è¡¨
-        scroll = ScrollView()
-        self.list_view = MDList()
-        scroll.add_widget(self.list_view)
-        layout.add_widget(scroll)
-        
-        # åº•éƒ¨æ§åˆ¶å°
-        control_card = MDCard(
-            size_hint=(1, None), 
-            height="80dp", 
-            padding="15dp",
-            spacing="10dp",
-            elevation=4, 
-            md_bg_color=self.theme_cls.bg_darkest
-        )
-        
-        self.status_label = MDLabel(
-            text="å‡†å¤‡å°±ç»ª", 
-            halign="left", 
-            theme_text_color="Secondary",
-            size_hint_x=1
-        )
-        control_card.add_widget(self.status_label)
-        
-        # æ’­æ”¾æ§åˆ¶
-        self.play_btn = MDFloatingActionButton(
-            icon="play", 
-            md_bg_color=self.theme_cls.primary_color,
-            on_release=self.toggle_play
-        )
-        control_card.add_widget(self.play_btn)
-        
-        # ä¸‹è½½/ç¼“å­˜æŒ‰é’®
-        self.download_btn = MDFloatingActionButton(
-            icon="download", 
-            md_bg_color=self.theme_cls.accent_color,
-            on_release=self.start_cache_or_record
-        )
-        control_card.add_widget(self.download_btn)
-        
-        layout.add_widget(control_card)
-        self.screen.add_widget(layout)
-        
-        self.init_date_menu()
-        
-        # é¦–æ¬¡åŠ è½½ä»Šå¤©æ•°æ®
-        Clock.schedule_once(lambda dt: self.load_schedule(self.current_date), 0.5)
-        
-        return self.screen
-
-    def init_date_menu(self):
-        menu_items = []
-        weekdays = ["å‘¨ä¸€", "å‘¨äºŒ", "å‘¨ä¸‰", "å‘¨å››", "å‘¨äº”", "å‘¨å…­", "å‘¨æ—¥"]
-        for i in range(30):
-            d = datetime.now() - timedelta(days=i)
-            label = f"{d.strftime('%Y-%m-%d')} ({weekdays[d.weekday()]})"
-            if i == 0: label = f"{d.strftime('%Y-%m-%d')} (ä»Šå¤©)"
-            if i == 1: label = f"{d.strftime('%Y-%m-%d')} (æ˜¨å¤©)"
-            
-            menu_items.append({
-                "text": label,
-                "viewclass": "OneLineListItem",
-                "on_release": lambda x=d.strftime('%Y-%m-%d'), y=label: self.on_date_select(x, y),
-            })
-            
-        self.menu = MDDropdownMenu(
-            items=menu_items,
-            width_mult=4,
-        )
-
-    def open_date_menu(self, button):
-        self.menu.caller = button
-        self.menu.open()
-
-    def on_date_select(self, date_str, label):
-        self.menu.dismiss()
-        self.current_date = date_str
-        date_label = label.split()[1] if " " in label else label
-        self.toolbar.title = f"æ¹–åŒ—ç»å…¸éŸ³ä¹å¹¿æ’­ {date_label}"
-        self.load_schedule(date_str)
-
-    def load_schedule(self, date_str):
-        self.status_label.text = "æ­£åœ¨è·å–èŠ‚ç›®å•..."
-        
-        def _fetch():
-            data = get_daily_schedule(date_str)
-            self.update_ui_schedule(data)
-            
-        threading.Thread(target=_fetch, daemon=True).start()
-
-    @mainthread
-    def update_ui_schedule(self, data):
-        self.schedule_data = data
-        self.list_view.clear_widgets()
-        
-        if not data:
-            self.status_label.text = "è·å–å¤±è´¥"
-            return
-            
-        for prog in data:
-            item = TwoLineListItem(
-                text=f"{prog['time']} - {prog['title']}",
-                secondary_text=f"ä¸»æŒ: {prog['host']}",
-                on_release=lambda x, p=prog: self.on_program_select(p)
-            )
-            self.list_view.add_widget(item)
-            
-        self.status_label.text = "èŠ‚ç›®å•åŠ è½½å®Œæˆ"
-
-    def on_program_select(self, prog):
-        self.selected_program = prog
-        self.status_label.text = f"å·²é€‰ä¸­: {prog['title']}"
-
-    def toggle_play(self, instance):
-        if self.player.is_playing():
-            self.player.stop()
-            self.play_btn.icon = "play"
-            self.status_label.text = "å·²åœæ­¢æ’­æ”¾"
-            return
-            
-        # æ’­æ”¾é€»è¾‘
-        if not self.selected_program:
-            self.status_label.text = "è¯·å…ˆé€‰æ‹©ä¸€ä¸ªèŠ‚ç›®ï¼"
-            return
-            
-        # å¦‚æœé€‰ä¸­çš„æ˜¯ä»¥å‰çš„èŠ‚ç›®ï¼Œå¹¶ä¸”æ²¡æœ‰IDï¼Œè¯´æ˜æ˜¯å›ºåŒ–æ•°æ®
-        if self.current_date != datetime.now().strftime('%Y-%m-%d') and not self.selected_program.get('id'):
-            self.status_label.text = "ç¦»çº¿æ•°æ®æ— æ³•æ’­æ”¾å›æ”¾ï¼"
-            return
-            
-        prog_id = self.selected_program.get('id')
-        if prog_id:
-            # æ’­æ”¾å›æ”¾
-            yyyymm = self.current_date.replace("-", "")[:6]
-            replay_url = f"https://fs.hbfm.hbi.tv/recorder/jdyy/{yyyymm}/{prog_id}.mp3"
-            
-            # åœ¨å®‰å“ç«¯ï¼Œæˆ‘ä»¬ä¸ºäº†ç»å¯¹æµç•…ï¼Œå¯ä»¥åœ¨è¿™é‡Œç›´æ¥æ’­æ”¾ï¼Œå› ä¸ºå®‰å“çš„MediaPlayerå†…ç½®è¶…çº§ç¼“å†²ã€‚
-            # PCå›é€€ç‰ˆç›´æ¥ç”¨ ffpyplayerã€‚
-            self.status_label.text = f"æ­£åœ¨ç¼“å†²å›æ”¾: {self.selected_program['title']}..."
-            self.player.play(replay_url)
-            self.play_btn.icon = "stop"
-        else:
-            # æ’­æ”¾ç›´æ’­ (ä»Šå¤©å¹¶ä¸”æ²¡æœ‰æœ‰æ•ˆidï¼Œæˆ–è€…æ˜¯æ­£åœ¨ç›´æ’­çš„)
-            self.status_label.text = "æ­£åœ¨è¿æ¥ç›´æ’­æº..."
-            self.player.play("https://fs.hbfm.hbi.tv/live/jdyy.m3u8")
-            self.play_btn.icon = "stop"
-
-    def start_cache_or_record(self, instance):
-        if not self.selected_program:
-            self.status_label.text = "è¯·å…ˆé€‰æ‹©è¦ä¸‹è½½çš„èŠ‚ç›®ï¼"
-            return
-            
-        prog_id = self.selected_program.get('id')
-        
-        try:
-            from android.storage import primary_external_storage_path
-            save_dir = os.path.join(primary_external_storage_path(), "Download", "HubeiRadio")
-        except ImportError:
-            save_dir = os.path.abspath("downloads")
-            
-        os.makedirs(save_dir, exist_ok=True)
-        
-        if prog_id:
-            # ä¸‹è½½å›æ”¾ MP3
-            yyyymm = self.current_date.replace("-", "")[:6]
-            url = f"https://fs.hbfm.hbi.tv/recorder/jdyy/{yyyymm}/{prog_id}.mp3"
-            filename = f"{self.current_date}_{self.selected_program['title']}.mp3"
-            self.download_file_bg(url, os.path.join(save_dir, filename))
-        else:
-            # å½•åˆ¶ç›´æ’­
-            if self.live_recorder and self.live_recorder.is_recording:
-                self.live_recorder.stop()
-                self.live_recorder = None
-                self.download_btn.icon = "download"
-                self.status_label.text = "ç›´æ’­å½•åˆ¶å·²ä¿å­˜ï¼"
-            else:
-                url = "https://fs.hbfm.hbi.tv/live/jdyy.m3u8"
-                filename = f"LiveRecord_{datetime.now().strftime('%Y%m%d_%H%M%S')}.ts"
-                self.live_recorder = HLSRecorder(url, os.path.join(save_dir, filename))
-                self.live_recorder.start()
-                self.download_btn.icon = "stop-circle"
-                self.status_label.text = f"æ­£åœ¨å½•åˆ¶ç›´æ’­...\nä¿å­˜è‡³: {filename}"
-
-    def download_file_bg(self, url, save_path):
-        filename = os.path.basename(save_path)
-        self.status_label.text = f"å¼€å§‹æé€Ÿç¼“å­˜: {filename}..."
-        
-        def _download():
+try:
+    from kivymd.app import MDApp
+    from kivymd.uix.screen import MDScreen
+    from kivymd.uix.boxlayout import MDBoxLayout
+    from kivymd.uix.toolbar import MDTopAppBar
+    from kivymd.uix.list import MDList, TwoLineListItem
+    from kivymd.uix.menu import MDDropdownMenu
+    from kivymd.uix.button import MDFloatingActionButton
+    from kivymd.uix.label import MDLabel
+    from kivymd.uix.card import MDCard
+    from kivy.uix.scrollview import ScrollView
+    from kivy.clock import Clock
+    from kivy.clock import mainthread
+    from kivy.core.window import Window
+    
+    from datetime import datetime, timedelta
+    import threading
+    import os
+    import urllib.request
+    import ssl
+    ssl._create_default_https_context = ssl._create_unverified_context
+    
+    from radio_api import get_daily_schedule
+    from android_player import get_player
+    from hls_recorder import HLSRecorder
+    
+    class RadioApp(MDApp):
+        def build(self):
             try:
-                urllib.request.urlretrieve(url, save_path)
-                self.update_status_safe(f"ä¸‹è½½æˆåŠŸï¼\nå·²ä¿å­˜è‡³: {save_path}")
-            except Exception as e:
-                self.update_status_safe(f"ä¸‹è½½å¤±è´¥: {e}")
+                from android.permissions import request_permissions, Permission
+                request_permissions([Permission.INTERNET, Permission.READ_EXTERNAL_STORAGE, Permission.WRITE_EXTERNAL_STORAGE])
+            except Exception:
+                pass
+
+            self.theme_cls.theme_style = "Dark"
+            self.theme_cls.primary_palette = "BlueGray"
+            self.theme_cls.accent_palette = "Teal"
+            
+            self.player = get_player()
+            self.live_recorder = None
+            self.current_date = datetime.now().strftime('%Y-%m-%d')
+            self.schedule_data = []
+            self.selected_program = None
+            
+            self.screen = MDScreen()
+            layout = MDBoxLayout(orientation='vertical')
+            
+            # ¶¥²¿µ¼º½À¸
+            self.toolbar = MDTopAppBar(
+                title="ºş±±¾­µäÒôÀÖ¹ã²¥ (½ñÌì)",
+                elevation=4,
+                right_action_items=[["calendar", lambda x: self.open_date_menu(x)]]
+            )
+            layout.add_widget(self.toolbar)
+            
+            # ½ÚÄ¿ÁĞ±í
+            scroll = ScrollView()
+            self.list_view = MDList()
+            scroll.add_widget(self.list_view)
+            layout.add_widget(scroll)
+            
+            # µ×²¿¿ØÖÆÌ¨
+            control_card = MDCard(
+                size_hint=(1, None), 
+                height="80dp", 
+                padding="15dp",
+                spacing="10dp",
+                elevation=4, 
+                md_bg_color=self.theme_cls.bg_darkest
+            )
+            
+            self.status_label = MDLabel(
+                text="×¼±¸¾ÍĞ÷", 
+                halign="left", 
+                theme_text_color="Secondary",
+                size_hint_x=1
+            )
+            control_card.add_widget(self.status_label)
+            
+            # ²¥·Å¿ØÖÆ
+            self.play_btn = MDFloatingActionButton(
+                icon="play", 
+                md_bg_color=self.theme_cls.primary_color,
+                on_release=self.toggle_play
+            )
+            control_card.add_widget(self.play_btn)
+            
+            # ÏÂÔØ/»º´æ°´Å¥
+            self.download_btn = MDFloatingActionButton(
+                icon="download", 
+                md_bg_color=self.theme_cls.accent_color,
+                on_release=self.start_cache_or_record
+            )
+            control_card.add_widget(self.download_btn)
+            
+            layout.add_widget(control_card)
+            self.screen.add_widget(layout)
+            
+            self.init_date_menu()
+            
+            # Ê×´Î¼ÓÔØ½ñÌìÊı¾İ
+            Clock.schedule_once(lambda dt: self.load_schedule(self.current_date), 0.5)
+            
+            return self.screen
+
+        def init_date_menu(self):
+            menu_items = []
+            weekdays = ["ÖÜÒ»", "ÖÜ¶ş", "ÖÜÈı", "ÖÜËÄ", "ÖÜÎå", "ÖÜÁù", "ÖÜÈÕ"]
+            for i in range(30):
+                d = datetime.now() - timedelta(days=i)
+                label = f"{d.strftime('%Y-%m-%d')} ({weekdays[d.weekday()]})"
+                if i == 0: label = f"{d.strftime('%Y-%m-%d')} (½ñÌì)"
+                if i == 1: label = f"{d.strftime('%Y-%m-%d')} (×òÌì)"
                 
-        threading.Thread(target=_download, daemon=True).start()
+                menu_items.append({
+                    "text": label,
+                    "viewclass": "OneLineListItem",
+                    "on_release": lambda x=d.strftime('%Y-%m-%d'), y=label: self.on_date_select(x, y),
+                })
+                
+            self.menu = MDDropdownMenu(
+                items=menu_items,
+                width_mult=4,
+            )
 
-    @mainthread
-    def update_status_safe(self, text):
-        self.status_label.text = text
+        def open_date_menu(self, button):
+            self.menu.caller = button
+            self.menu.open()
 
-if __name__ == "__main__":
-    RadioApp().run()
+        def on_date_select(self, date_str, label):
+            self.menu.dismiss()
+            self.current_date = date_str
+            date_label = label.split()[1] if " " in label else label
+            self.toolbar.title = f"ºş±±¾­µäÒôÀÖ¹ã²¥ {date_label}"
+            self.load_schedule(date_str)
+
+        def load_schedule(self, date_str):
+            self.status_label.text = "ÕıÔÚ»ñÈ¡½ÚÄ¿µ¥..."
+            
+            def _fetch():
+                data = get_daily_schedule(date_str)
+                self.update_ui_schedule(data)
+                
+            threading.Thread(target=_fetch, daemon=True).start()
+
+        @mainthread
+        def update_ui_schedule(self, data):
+            self.schedule_data = data
+            self.list_view.clear_widgets()
+            
+            if not data:
+                self.status_label.text = "»ñÈ¡Ê§°Ü"
+                return
+                
+            for prog in data:
+                item = TwoLineListItem(
+                    text=f"{prog['time']} - {prog['title']}",
+                    secondary_text=f"Ö÷³Ö: {prog['host']}",
+                    on_release=lambda x, p=prog: self.on_program_select(p)
+                )
+                self.list_view.add_widget(item)
+                
+            self.status_label.text = "½ÚÄ¿µ¥¼ÓÔØÍê³É"
+
+        def on_program_select(self, prog):
+            self.selected_program = prog
+            self.status_label.text = f"ÒÑÑ¡ÖĞ: {prog['title']}"
+
+        def toggle_play(self, instance):
+            if self.player.is_playing():
+                self.player.stop()
+                self.play_btn.icon = "play"
+                self.status_label.text = "ÒÑÍ£Ö¹²¥·Å"
+                return
+                
+            # ²¥·ÅÂß¼­
+            if not self.selected_program:
+                self.status_label.text = "ÇëÏÈÑ¡ÔñÒ»¸ö½ÚÄ¿£¡"
+                return
+                
+            # Èç¹ûÑ¡ÖĞµÄÊÇÒÔÇ°µÄ½ÚÄ¿£¬²¢ÇÒÃ»ÓĞID£¬ËµÃ÷ÊÇ¹Ì»¯Êı¾İ
+            if self.current_date != datetime.now().strftime('%Y-%m-%d') and not self.selected_program.get('id'):
+                self.status_label.text = "ÀëÏßÊı¾İÎŞ·¨²¥·Å»Ø·Å£¡"
+                return
+                
+            prog_id = self.selected_program.get('id')
+            if prog_id:
+                # ²¥·Å»Ø·Å
+                yyyymm = self.current_date.replace("-", "")[:6]
+                replay_url = f"https://fs.hbfm.hbi.tv/recorder/jdyy/{yyyymm}/{prog_id}.mp3"
+                
+                self.status_label.text = f"ÕıÔÚ»º³å»Ø·Å: {self.selected_program['title']}..."
+                self.player.play(replay_url)
+                self.play_btn.icon = "stop"
+            else:
+                # ²¥·ÅÖ±²¥ (½ñÌì²¢ÇÒÃ»ÓĞÓĞĞ§id£¬»òÕßÊÇÕıÔÚÖ±²¥µÄ)
+                self.status_label.text = "ÕıÔÚÁ¬½ÓÖ±²¥Ô´..."
+                self.player.play("https://fs.hbfm.hbi.tv/live/jdyy.m3u8")
+                self.play_btn.icon = "stop"
+
+        def start_cache_or_record(self, instance):
+            if not self.selected_program:
+                self.status_label.text = "ÇëÏÈÑ¡ÔñÒªÏÂÔØµÄ½ÚÄ¿£¡"
+                return
+                
+            prog_id = self.selected_program.get('id')
+            
+            try:
+                from android.storage import primary_external_storage_path
+                save_dir = os.path.join(primary_external_storage_path(), "Download", "HubeiRadio")
+            except ImportError:
+                save_dir = os.path.abspath("downloads")
+                
+            os.makedirs(save_dir, exist_ok=True)
+            
+            if prog_id:
+                # ÏÂÔØ»Ø·Å MP3
+                yyyymm = self.current_date.replace("-", "")[:6]
+                url = f"https://fs.hbfm.hbi.tv/recorder/jdyy/{yyyymm}/{prog_id}.mp3"
+                filename = f"{self.current_date}_{self.selected_program['title']}.mp3"
+                self.download_file_bg(url, os.path.join(save_dir, filename))
+            else:
+                # Â¼ÖÆÖ±²¥
+                if self.live_recorder and self.live_recorder.is_recording:
+                    self.live_recorder.stop()
+                    self.live_recorder = None
+                    self.download_btn.icon = "download"
+                    self.status_label.text = "Ö±²¥Â¼ÖÆÒÑ±£´æ£¡"
+                else:
+                    url = "https://fs.hbfm.hbi.tv/live/jdyy.m3u8"
+                    filename = f"LiveRecord_{datetime.now().strftime('%Y%m%d_%H%M%S')}.ts"
+                    self.live_recorder = HLSRecorder(url, os.path.join(save_dir, filename))
+                    self.live_recorder.start()
+                    self.download_btn.icon = "stop-circle"
+                    self.status_label.text = f"ÕıÔÚÂ¼ÖÆÖ±²¥...\n±£´æÖÁ: {filename}"
+
+        def download_file_bg(self, url, save_path):
+            filename = os.path.basename(save_path)
+            self.status_label.text = f"¿ªÊ¼¼«ËÙ»º´æ: {filename}..."
+            
+            def _download():
+                try:
+                    urllib.request.urlretrieve(url, save_path)
+                    self.update_status_safe(f"ÏÂÔØ³É¹¦£¡\nÒÑ±£´æÖÁ: {save_path}")
+                except Exception as e:
+                    self.update_status_safe(f"ÏÂÔØÊ§°Ü: {e}")
+                    
+            threading.Thread(target=_download, daemon=True).start()
+
+        @mainthread
+        def update_status_safe(self, text):
+            self.status_label.text = text
+
+    if __name__ == "__main__":
+        RadioApp().run()
+
+except Exception as e:
+    err = traceback.format_exc()
+    # ³¢ÊÔĞ´ÈëÊÖ»ú°²È«Ä¿Â¼
+    try:
+        from jnius import autoclass
+        PythonActivity = autoclass('org.kivy.android.PythonActivity')
+        context = PythonActivity.mActivity
+        ext_dir = context.getExternalFilesDir(None).getAbsolutePath()
+        with open(ext_dir + "/crash.txt", "w") as f:
+            f.write(err)
+    except Exception:
+        pass
+
+    from kivy.app import App
+    from kivy.uix.label import Label
+    from kivy.core.window import Window
+
+    class ErrorApp(App):
+        def build(self):
+            Window.clearcolor = (0.5, 0, 0, 1) # ÉîºìÉ«±³¾°
+            # Ëõ·Å×ÖÌåÒÔÈ·±£´ó²¿·ÖÄÚÈİ¿É¼û
+            return Label(text=err, text_size=(Window.width * 0.9, None), halign='left', valign='top', font_size='10sp')
+
+    if __name__ == "__main__":
+        ErrorApp().run()
