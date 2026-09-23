@@ -16,6 +16,8 @@ from datetime import datetime, timedelta
 import threading
 import os
 import urllib.request
+import ssl
+ssl._create_default_https_context = ssl._create_unverified_context
 
 from radio_api import get_daily_schedule
 from android_player import get_player
@@ -23,6 +25,12 @@ from hls_recorder import HLSRecorder
 
 class RadioApp(MDApp):
     def build(self):
+        try:
+            from android.permissions import request_permissions, Permission
+            request_permissions([Permission.INTERNET, Permission.READ_EXTERNAL_STORAGE, Permission.WRITE_EXTERNAL_STORAGE])
+        except Exception:
+            pass
+
         self.theme_cls.theme_style = "Dark"
         self.theme_cls.primary_palette = "BlueGray"
         self.theme_cls.accent_palette = "Teal"

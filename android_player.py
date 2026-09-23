@@ -6,9 +6,7 @@ IS_ANDROID = hasattr(sys, 'getandroidapilevel')
 
 class AndroidNativePlayer:
     def __init__(self):
-        from jnius import autoclass
-        self.MediaPlayer = autoclass('android.media.MediaPlayer')
-        self.player = self.MediaPlayer()
+        self.player = None
         self.is_playing_flag = False
         
     def play(self, url):
@@ -16,8 +14,13 @@ class AndroidNativePlayer:
         
         def _play():
             try:
+                from jnius import autoclass
+                Looper = autoclass('android.os.Looper')
+                if not Looper.myLooper():
+                    Looper.prepare()
+                
+                self.player = autoclass('android.media.MediaPlayer')()
                 self.player.setDataSource(url)
-                # prepare() 是同步阻塞的，所以在后台线程执行防止卡顿 UI
                 self.player.prepare()
                 self.player.start()
                 self.is_playing_flag = True
@@ -28,10 +31,13 @@ class AndroidNativePlayer:
 
     def stop(self):
         try:
-            if self.is_playing_flag:
+            if self.is_playing_flag and self.player:
                 self.player.stop()
                 self.is_playing_flag = False
-            self.player.reset()
+            if self.player:
+                self.player.reset()
+                self.player.release()
+                self.player = None
         except Exception as e:
             print(f"Android MediaPlayer Stop Error: {e}")
             
