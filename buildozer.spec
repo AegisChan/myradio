@@ -3,7 +3,7 @@ title = 湖北经典音乐广播
 package.name = hubeiradio
 package.domain = org.jdyy
 source.dir = .
-source.include_exts = py,png,jpg,kv,atlas
+source.include_exts = py,png,jpg,kv,atlas,ttf
 version = 1.0
 
 # 最新最稳的组合：Kivy 2.3.0 完美适配安卓13+，KivyMD 1.2.0 修复了所有闪退 Bug
