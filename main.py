@@ -2,18 +2,19 @@ import traceback
 
 try:
     from kivy.core.text import LabelBase
-    # 全局注册中文字体，解决所有中文变方块的问题
-    LabelBase.register(name="SimHei", fn_regular="simhei.ttf")
+    # 全局注册中文字体（使用更细腻的邓线 Light）
+    LabelBase.register(name="CustomFont", fn_regular="font.ttf")
     
     from kivymd.app import MDApp
     from kivymd.uix.screen import MDScreen
     from kivymd.uix.boxlayout import MDBoxLayout
     from kivymd.uix.toolbar import MDTopAppBar
-    from kivymd.uix.list import MDList, TwoLineAvatarIconListItem, IconLeftWidget, IconRightWidget
+    from kivymd.uix.list import MDList, TwoLineAvatarIconListItem, IconLeftWidget
     from kivymd.uix.menu import MDDropdownMenu
-    from kivymd.uix.button import MDFloatingActionButton, MDIconButton
+    from kivymd.uix.button import MDFillRoundFlatButton, MDFillRoundFlatIconButton
     from kivymd.uix.label import MDLabel
     from kivymd.uix.card import MDCard
+    from kivy.uix.image import Image
     from kivy.uix.scrollview import ScrollView
     from kivy.clock import Clock
     from kivy.clock import mainthread
@@ -37,11 +38,10 @@ try:
             self.prog = prog
             self.app = app_instance
             self.text = f"{prog['time']} - {prog['title']}"
-            self.secondary_text = f"🎙 主播: {prog['host']}"
+            self.secondary_text = f"主播: {prog['host']}"
             
-            # 默认颜色
-            self.theme_text_color = "Custom"
-            self.text_color = self.app.theme_cls.text_color
+            # 使用透明背景
+            self.bg_color = (0, 0, 0, 0)
             
             # 左侧音乐图标
             self.icon_left = IconLeftWidget(icon="music-circle-outline")
@@ -61,15 +61,16 @@ try:
             except Exception:
                 pass
 
-            # 设置高端优雅的主题配色
-            self.theme_cls.material_style = "M3" # 引入 Material 3 风格
+            # 设置主题
+            self.theme_cls.material_style = "M3"
             self.theme_cls.theme_style = "Dark"
-            self.theme_cls.primary_palette = "Indigo" # 靛蓝色，高级感
-            self.theme_cls.accent_palette = "Teal"
+            self.theme_cls.primary_palette = "DeepPurple"
+            self.theme_cls.accent_palette = "Pink"
             
-            # 强制替换所有 Material Design 的字体为我们的中文字体
+            # 强制替换中文字体，但保留 Material Icons 图标字体！(解决方块图标问题)
             for style in self.theme_cls.font_styles.keys():
-                self.theme_cls.font_styles[style][0] = "SimHei"
+                if style != "Icons":
+                    self.theme_cls.font_styles[style][0] = "CustomFont"
             
             self.player = get_player()
             self.live_recorder = None
@@ -79,76 +80,90 @@ try:
             self.list_item_widgets = []
             
             self.screen = MDScreen()
-            # 使用稍微亮一点的深色背景，而不是纯黑
-            self.screen.md_bg_color = get_color_from_hex("#121212")
             
-            layout = MDBoxLayout(orientation='vertical')
+            # 1. 核心需求：背景图片
+            bg_image = Image(source="background.png", allow_stretch=True, keep_ratio=False)
+            self.screen.add_widget(bg_image)
             
-            # 顶部导航栏 (M3风格)
+            # 增加一个半透明黑色遮罩层，让背景图片变暗，以免干扰文字显示
+            overlay = MDBoxLayout(md_bg_color=(0, 0, 0, 0.5), orientation='vertical')
+            self.screen.add_widget(overlay)
+            
+            # 2. 顶部导航栏 (毛玻璃/半透明效果)
             self.toolbar = MDTopAppBar(
                 title="湖北经典音乐广播 (今天)",
-                elevation=2,
-                md_bg_color=self.theme_cls.primary_color,
+                elevation=0,
+                md_bg_color=(0, 0, 0, 0.3), # 半透明
                 right_action_items=[["calendar-month", lambda x: self.open_date_menu(x)]]
             )
-            layout.add_widget(self.toolbar)
+            overlay.add_widget(self.toolbar)
             
-            # 节目列表
+            # 3. 节目列表
             scroll = ScrollView()
             self.list_view = MDList()
             scroll.add_widget(self.list_view)
-            layout.add_widget(scroll)
+            overlay.add_widget(scroll)
             
-            # 底部控制台卡片 (圆角浮动卡片设计)
+            # 4. 底部控制台卡片 (半透明扁平化设计)
             bottom_container = MDBoxLayout(
                 size_hint_y=None, 
-                height="100dp",
-                padding=["15dp", "10dp", "15dp", "15dp"]
+                height="130dp",
+                padding=["15dp", "10dp", "15dp", "15dp"],
+                md_bg_color=(0, 0, 0, 0.4)
             )
             
-            control_card = MDCard(
-                size_hint=(1, 1), 
-                padding="15dp",
-                spacing="15dp",
-                elevation=2,
-                radius=[25, 25, 25, 25], # 圆角卡片
-                md_bg_color=get_color_from_hex("#1E1E2E")
-            )
+            control_layout = MDBoxLayout(orientation="vertical", spacing="10dp")
             
-            # 左侧状态文本
+            # 状态文本
             self.status_label = MDLabel(
-                text="🎵 准备就绪，请选择节目", 
-                halign="left", 
+                text="准备就绪，请选择节目", 
+                halign="center", 
                 valign="center",
                 theme_text_color="Custom",
-                text_color=get_color_from_hex("#A6ADC8"),
-                size_hint_x=1,
+                text_color=(1, 1, 1, 0.8),
+                size_hint_y=None,
+                height="30dp",
                 font_style="Caption"
             )
-            control_card.add_widget(self.status_label)
+            control_layout.add_widget(self.status_label)
             
-            # 下载/缓存按钮
-            self.download_btn = MDIconButton(
-                icon="download-circle", 
-                theme_text_color="Custom",
-                text_color=self.theme_cls.accent_color,
-                icon_size="48sp",
-                on_release=self.start_cache_or_record
-            )
-            control_card.add_widget(self.download_btn)
-
-            # 主播放按钮
-            self.play_btn = MDFloatingActionButton(
-                icon="play", 
+            # 按钮行 (排列整齐的扁平矩形按钮)
+            btn_row = MDBoxLayout(orientation="horizontal", spacing="15dp", size_hint_y=None, height="50dp")
+            
+            # 播放选中按键
+            self.play_btn = MDFillRoundFlatIconButton(
+                text="播放回放",
+                icon="play-circle",
+                size_hint_x=1,
                 md_bg_color=self.theme_cls.primary_color,
-                elevation=2,
                 on_release=self.toggle_play
             )
-            control_card.add_widget(self.play_btn)
             
-            bottom_container.add_widget(control_card)
-            layout.add_widget(bottom_container)
-            self.screen.add_widget(layout)
+            # 核心需求：播放直播专属按键
+            self.live_btn = MDFillRoundFlatIconButton(
+                text="播放直播",
+                icon="radio",
+                size_hint_x=1,
+                md_bg_color=get_color_from_hex("#D81B60"), # 显眼的粉红色
+                on_release=self.play_live
+            )
+            
+            # 下载按键
+            self.download_btn = MDFillRoundFlatIconButton(
+                text="极速缓存",
+                icon="download",
+                size_hint_x=1,
+                md_bg_color=get_color_from_hex("#00897B"), # 沉稳的绿色
+                on_release=self.start_cache_or_record
+            )
+            
+            btn_row.add_widget(self.play_btn)
+            btn_row.add_widget(self.live_btn)
+            btn_row.add_widget(self.download_btn)
+            
+            control_layout.add_widget(btn_row)
+            bottom_container.add_widget(control_layout)
+            overlay.add_widget(bottom_container)
             
             self.init_date_menu()
             Clock.schedule_once(lambda dt: self.load_schedule(self.current_date), 0.5)
@@ -156,7 +171,6 @@ try:
             return self.screen
 
         def set_keep_screen_on(self, keep_on):
-            # 安卓专用：控制屏幕常亮
             try:
                 from jnius import autoclass
                 from android.runnable import run_on_ui_thread
@@ -191,7 +205,7 @@ try:
             self.menu = MDDropdownMenu(
                 items=menu_items,
                 width_mult=4,
-                background_color=get_color_from_hex("#1E1E2E")
+                background_color=(0.1, 0.1, 0.1, 0.9)
             )
 
         def open_date_menu(self, button):
@@ -206,7 +220,7 @@ try:
             self.load_schedule(date_str)
 
         def load_schedule(self, date_str):
-            self.status_label.text = "🔄 正在获取节目单..."
+            self.status_label.text = "正在获取节目单..."
             
             def _fetch():
                 data = get_daily_schedule(date_str)
@@ -221,7 +235,7 @@ try:
             self.list_item_widgets.clear()
             
             if not data:
-                self.status_label.text = "❌ 获取失败"
+                self.status_label.text = "获取失败"
                 return
                 
             for prog in data:
@@ -229,60 +243,80 @@ try:
                 self.list_item_widgets.append(item)
                 self.list_view.add_widget(item)
                 
-            self.status_label.text = "✅ 节目单已更新"
+            self.status_label.text = "节目单加载完成"
 
         def on_program_select(self, prog, clicked_item):
             self.selected_program = prog
-            self.status_label.text = f"📍 已选中: {prog['title']}"
+            self.status_label.text = f"已选中: {prog['title']}"
             
-            # 更新列表 UI 选中状态：取消所有高亮，高亮当前
+            # 更新列表 UI 选中状态，让选中的条目变得非常明显
             for item in self.list_item_widgets:
                 if item == clicked_item:
-                    item.text_color = self.theme_cls.primary_color
+                    item.bg_color = (1, 1, 1, 0.15) # 选中的背景微亮
+                    item.text_color = self.theme_cls.accent_color
+                    item.secondary_text_color = self.theme_cls.accent_color
                     item.icon_left.icon = "music-circle"
-                    item.icon_left.text_color = self.theme_cls.primary_color
+                    item.icon_left.text_color = self.theme_cls.accent_color
                     item.icon_left.theme_text_color = "Custom"
                 else:
+                    item.bg_color = (0, 0, 0, 0)
                     item.text_color = self.theme_cls.text_color
+                    item.secondary_text_color = self.theme_cls.text_color
                     item.icon_left.icon = "music-circle-outline"
                     item.icon_left.theme_text_color = "Primary"
 
-        def toggle_play(self, instance):
+        def stop_all(self):
             if self.player.is_playing():
                 self.player.stop()
-                self.play_btn.icon = "play"
-                self.play_btn.md_bg_color = self.theme_cls.primary_color
-                self.status_label.text = "⏹ 已停止播放"
-                self.set_keep_screen_on(False) # 停止时关闭屏幕常亮
+            self.play_btn.icon = "play-circle"
+            self.play_btn.text = "播放回放"
+            self.live_btn.icon = "radio"
+            self.live_btn.text = "播放直播"
+            self.set_keep_screen_on(False)
+
+        def play_live(self, instance):
+            if self.player.is_playing() and self.live_btn.text == "停止直播":
+                self.stop_all()
+                self.status_label.text = "已停止直播"
+                return
+                
+            self.stop_all()
+            self.status_label.text = "正在连接直播源..."
+            self.player.play("https://fs.hbfm.hbi.tv/live/jdyy.m3u8")
+            self.live_btn.icon = "stop-circle"
+            self.live_btn.text = "停止直播"
+            self.set_keep_screen_on(True)
+
+        def toggle_play(self, instance):
+            if self.player.is_playing() and self.play_btn.text == "停止回放":
+                self.stop_all()
+                self.status_label.text = "已停止回放"
                 return
                 
             if not self.selected_program:
-                self.status_label.text = "⚠️ 请先选择一个节目！"
+                self.status_label.text = "请先在列表中选择一个节目！"
                 return
                 
             if self.current_date != datetime.now().strftime('%Y-%m-%d') and not self.selected_program.get('id'):
-                self.status_label.text = "⚠️ 离线数据无法播放回放！"
+                self.status_label.text = "离线固化数据无回放链接！"
                 return
                 
             prog_id = self.selected_program.get('id')
             if prog_id:
+                self.stop_all()
                 yyyymm = self.current_date.replace("-", "")[:6]
                 replay_url = f"https://fs.hbfm.hbi.tv/recorder/jdyy/{yyyymm}/{prog_id}.mp3"
-                self.status_label.text = f"🎧 正在缓冲: {self.selected_program['title']}..."
+                self.status_label.text = f"正在缓冲回放: {self.selected_program['title']}..."
                 self.player.play(replay_url)
-                self.play_btn.icon = "stop"
-                self.play_btn.md_bg_color = get_color_from_hex("#E53935") # 红色停止键
-                self.set_keep_screen_on(True) # 播放时保持屏幕点亮
-            else:
-                self.status_label.text = "📡 正在连接直播源..."
-                self.player.play("https://fs.hbfm.hbi.tv/live/jdyy.m3u8")
-                self.play_btn.icon = "stop"
-                self.play_btn.md_bg_color = get_color_from_hex("#E53935")
+                self.play_btn.icon = "stop-circle"
+                self.play_btn.text = "停止回放"
                 self.set_keep_screen_on(True)
+            else:
+                self.status_label.text = "当前节目无回放资源，请点击'播放直播'"
 
         def start_cache_or_record(self, instance):
             if not self.selected_program:
-                self.status_label.text = "⚠️ 请先选择节目！"
+                self.status_label.text = "请先选择要操作的节目！"
                 return
                 
             prog_id = self.selected_program.get('id')
@@ -304,26 +338,28 @@ try:
                 if self.live_recorder and self.live_recorder.is_recording:
                     self.live_recorder.stop()
                     self.live_recorder = None
-                    self.download_btn.icon = "download-circle"
-                    self.status_label.text = "✅ 直播录制已保存！"
+                    self.download_btn.icon = "download"
+                    self.download_btn.text = "极速缓存"
+                    self.status_label.text = "直播录制已保存至Download目录！"
                 else:
                     url = "https://fs.hbfm.hbi.tv/live/jdyy.m3u8"
                     filename = f"LiveRecord_{datetime.now().strftime('%Y%m%d_%H%M%S')}.ts"
                     self.live_recorder = HLSRecorder(url, os.path.join(save_dir, filename))
                     self.live_recorder.start()
-                    self.download_btn.icon = "stop-circle-outline"
-                    self.status_label.text = f"🔴 正在录制直播...\n保存至: {filename}"
+                    self.download_btn.icon = "stop"
+                    self.download_btn.text = "停止录制"
+                    self.status_label.text = f"正在录制直播...\n保存至: {filename}"
 
         def download_file_bg(self, url, save_path):
             filename = os.path.basename(save_path)
-            self.status_label.text = f"⬇️ 开始极速缓存..."
+            self.status_label.text = f"开始极速缓存..."
             
             def _download():
                 try:
                     urllib.request.urlretrieve(url, save_path)
-                    self.update_status_safe(f"✅ 下载成功！\n已存至 Download 目录")
+                    self.update_status_safe(f"下载成功！已存至手机 Download 目录")
                 except Exception as e:
-                    self.update_status_safe(f"❌ 下载失败: {e}")
+                    self.update_status_safe(f"下载失败: {e}")
                     
             threading.Thread(target=_download, daemon=True).start()
 
@@ -336,7 +372,6 @@ try:
 
 except BaseException as e:
     err = traceback.format_exc()
-    
     err_url = ""
     try:
         import socket
@@ -356,7 +391,6 @@ except BaseException as e:
         Toast = autoclass('android.widget.Toast')
         String = autoclass('java.lang.String')
         context = PythonActivity.mActivity
-        
         @run_on_ui_thread
         def _show():
             msg = f"Crash logs sent to: {err_url}" if err_url else "Crash network failed!"
