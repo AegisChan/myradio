@@ -8,6 +8,7 @@ class AndroidNativePlayer:
     def __init__(self):
         self.player = None
         self.is_playing_flag = False
+        self.duration = 0
         
     def play(self, url):
         self.stop()
@@ -24,6 +25,7 @@ class AndroidNativePlayer:
                 self.player.prepare()
                 self.player.start()
                 self.is_playing_flag = True
+                self.duration = self.player.getDuration()
             except Exception as e:
                 print(f"Android MediaPlayer Error: {e}")
                 
@@ -38,11 +40,35 @@ class AndroidNativePlayer:
                 self.player.reset()
                 self.player.release()
                 self.player = None
+                self.duration = 0
         except Exception as e:
             print(f"Android MediaPlayer Stop Error: {e}")
             
     def is_playing(self):
         return self.is_playing_flag
+        
+    def get_position(self):
+        try:
+            if self.is_playing_flag and self.player:
+                return self.player.getCurrentPosition()
+        except:
+            pass
+        return 0
+        
+    def get_duration(self):
+        try:
+            if self.is_playing_flag and self.player:
+                return self.player.getDuration()
+        except:
+            pass
+        return self.duration
+        
+    def seek(self, position_ms):
+        try:
+            if self.is_playing_flag and self.player:
+                self.player.seekTo(int(position_ms))
+        except:
+            pass
 
 class PCPlayer:
     def __init__(self):
@@ -67,6 +93,15 @@ class PCPlayer:
         
     def is_playing(self):
         return self.is_playing_flag
+        
+    def get_position(self):
+        return 0
+        
+    def get_duration(self):
+        return 0
+        
+    def seek(self, position_ms):
+        pass
 
 # 工厂模式导出
 def get_player():

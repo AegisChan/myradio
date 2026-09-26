@@ -15,10 +15,14 @@ try:
     from kivymd.uix.card import MDCard
     from kivymd.uix.fitimage import FitImage
     from kivy.uix.scrollview import ScrollView
+    from kivymd.uix.bottomnavigation import MDBottomNavigation, MDBottomNavigationItem
+    from kivymd.uix.slider import MDSlider
+    from kivymd.uix.list import MDList, TwoLineRightIconListItem, IconRightWidget
     from kivy.clock import Clock
     from kivy.clock import mainthread
     from kivy.core.window import Window
     from kivy.utils import get_color_from_hex
+    from kivy.uix.behaviors import ButtonBehavior
     
     from datetime import datetime, timedelta
     import threading
@@ -37,9 +41,9 @@ try:
             super().__init__(**kwargs)
             self.size_hint_y = None
             self.height = "42dp"
-            self.size_hint_x = 1 # 等分拉伸
+            self.size_hint_x = 1
             self.md_bg_color = bg_color
-            self.radius = [8, 8, 8, 8] # 矩形+小圆倒角
+            self.radius = [8, 8, 8, 8]
             self.ripple_behavior = True
             self.elevation = 0
             
@@ -58,11 +62,14 @@ try:
         def update_state(self, text, active=False):
             self.label_widget.text = text
             if active:
-                self.md_bg_color = (1, 1, 1, 0.35) # 激活时变亮
-                self.label_widget.text_color = get_color_from_hex("#60A5FA") # 亮蓝色
+                self.md_bg_color = (1, 1, 1, 0.35)
+                self.label_widget.text_color = get_color_from_hex("#60A5FA")
             else:
-                self.md_bg_color = (1, 1, 1, 0.15) # 恢复原本半透明
+                self.md_bg_color = (1, 1, 1, 0.15)
                 self.label_widget.text_color = (1, 1, 1, 0.9)
+
+    class ClickableBanner(ButtonBehavior, MDBoxLayout):
+        pass
 
     # 自定义紧凑且偏左的节目列表项
     class ProgramListItem(MDCard):
@@ -71,11 +78,11 @@ try:
             self.prog = prog
             self.app = app_instance
             self.size_hint_y = None
-            self.height = "54dp" # 减少间距，更加紧凑
+            self.height = "54dp"
             self.md_bg_color = (0, 0, 0, 0)
             self.elevation = 0
             self.ripple_behavior = True
-            self.padding = ["20dp", "8dp", "20dp", "8dp"] # 整体偏左对齐
+            self.padding = ["20dp", "8dp", "20dp", "8dp"]
             self.bind(on_release=self.on_click)
             
             self.layout = MDBoxLayout(orientation="vertical", spacing="2dp")
@@ -111,7 +118,6 @@ try:
             self.theme_cls.material_style = "M3"
             self.theme_cls.theme_style = "Dark"
             
-            # 全局缩放字体，使用微软雅黑
             for style in self.theme_cls.font_styles.keys():
                 if style != "Icons":
                     self.theme_cls.font_styles[style][0] = "CustomFont"
@@ -124,42 +130,89 @@ try:
             self.schedule_data = []
             self.selected_program = None
             self.list_item_widgets = []
+            self.is_seeking = False
             
             self.screen = MDScreen()
             
-            # 背景图
+            # 全局背景图
             bg_image = FitImage(source="background.png")
             self.screen.add_widget(bg_image)
             
-            # 遮罩: 大幅提升透明度 (0.65 -> 0.25)，让背景图更亮更通透
-            overlay = MDBoxLayout(md_bg_color=(0.0, 0.0, 0.05, 0.25), orientation='vertical')
+            # 全局遮罩
+            overlay = MDBoxLayout(md_bg_color=(0.0, 0.0, 0.05, 0.3), orientation='vertical')
             self.screen.add_widget(overlay)
             
-            # 导航栏
+            # 顶部导航栏 (无多余图标)
             self.toolbar = MDTopAppBar(
-                title="湖北经典音乐广播 (今天)",
+                title="湖北经典音乐广播",
                 elevation=0,
                 md_bg_color=(0, 0, 0, 0.15),
-                specific_text_color=(1, 1, 1, 1),
-                right_action_items=[["calendar", lambda x: self.open_date_menu(x)]]
+                specific_text_color=(1, 1, 1, 1)
             )
             overlay.add_widget(self.toolbar)
             
-            # 列表 (紧凑型布局)
-            scroll = ScrollView()
-            self.list_layout = MDBoxLayout(orientation="vertical", adaptive_height=True, spacing="2dp", padding=["0dp", "10dp", "0dp", "10dp"])
-            scroll.add_widget(self.list_layout)
-            overlay.add_widget(scroll)
+            # --- 底部导航栏 (Bottom Navigation) ---
+            self.bottom_nav = MDBottomNavigation(
+                panel_color=(0.1, 0.1, 0.1, 0.8),
+                selected_color_background=(0, 0, 0, 0),
+                text_color_active=get_color_from_hex("#60A5FA")
+            )
             
-            # 底部控制台
+            # === TAB 1: 频道大厅 ===
+            tab1 = MDBottomNavigationItem(
+                name='screen_radio',
+                text='频道大厅',
+                icon='radio'
+            )
+            tab1_layout = MDBoxLayout(orientation="vertical")
+            
+            # 宽大醒目的日期选择横幅
+            self.date_banner = ClickableBanner(
+                orientation="horizontal", 
+                size_hint_y=None, 
+                height="48dp",
+                md_bg_color=(1, 1, 1, 0.1),
+                padding=["20dp", "0dp", "20dp", "0dp"]
+            )
+            self.date_banner.bind(on_release=self.open_date_menu)
+            self.date_label = MDLabel(
+                text=f"📅 当前日期：{self.current_date} (今天)   [点击切换]",
+                halign="center",
+                valign="center",
+                theme_text_color="Custom",
+                text_color=(1, 1, 1, 0.9),
+                font_style="Body2"
+            )
+            self.date_banner.add_widget(self.date_label)
+            tab1_layout.add_widget(self.date_banner)
+            
+            # 节目列表
+            scroll = ScrollView()
+            self.list_layout = MDBoxLayout(orientation="vertical", adaptive_height=True, spacing="2dp", padding=["0dp", "5dp", "0dp", "5dp"])
+            scroll.add_widget(self.list_layout)
+            tab1_layout.add_widget(scroll)
+            
+            # 底部控制台 (含进度条)
             bottom_container = MDBoxLayout(
                 size_hint_y=None, 
-                padding=["15dp", "10dp", "15dp", "25dp"],
-                md_bg_color=(0, 0, 0, 0.4), # 控制台区域稍暗，增强按键对比
+                padding=["15dp", "5dp", "15dp", "15dp"],
+                md_bg_color=(0, 0, 0, 0.5),
                 orientation="vertical",
-                spacing="15dp"
+                spacing="5dp"
             )
             bottom_container.bind(minimum_height=bottom_container.setter('height'))
+            
+            # 进度条及时间显示
+            slider_layout = MDBoxLayout(orientation="horizontal", size_hint_y=None, height="30dp", spacing="10dp")
+            self.time_current = MDLabel(text="00:00", size_hint_x=None, width="40dp", halign="center", theme_text_color="Custom", text_color=(1,1,1,0.7), font_style="Caption")
+            self.slider = MDSlider(min=0, max=100, value=0, color=get_color_from_hex("#60A5FA"), hint=False)
+            self.slider.bind(on_touch_down=self.on_slider_down, on_touch_up=self.on_slider_up)
+            self.time_total = MDLabel(text="00:00", size_hint_x=None, width="40dp", halign="center", theme_text_color="Custom", text_color=(1,1,1,0.7), font_style="Caption")
+            
+            slider_layout.add_widget(self.time_current)
+            slider_layout.add_widget(self.slider)
+            slider_layout.add_widget(self.time_total)
+            bottom_container.add_widget(slider_layout)
             
             # 状态文本
             self.status_label = MDLabel(
@@ -174,15 +227,13 @@ try:
             )
             bottom_container.add_widget(self.status_label)
             
-            # 4个均匀分布的按键 (2x2 网格)
+            # 4个均匀分布的按键
             btn_grid = MDGridLayout(cols=2, spacing="15dp", size_hint_y=None)
             btn_grid.bind(minimum_height=btn_grid.setter('height'))
-            
-            # 同一色系（玻璃质感的高级白灰半透明）
             glass_color = (1, 1, 1, 0.15)
             
             self.play_btn = CustomRectBtn("播放回放", glass_color, self.toggle_play)
-            self.download_btn = CustomRectBtn("下载回放", glass_color, self.download_replay)
+            self.download_btn = CustomRectBtn("极速缓存", glass_color, self.download_replay)
             self.live_btn = CustomRectBtn("播放直播", glass_color, self.play_live)
             self.record_btn = CustomRectBtn("录制直播", glass_color, self.record_live)
             
@@ -192,12 +243,137 @@ try:
             btn_grid.add_widget(self.record_btn)
             
             bottom_container.add_widget(btn_grid)
-            overlay.add_widget(bottom_container)
+            tab1_layout.add_widget(bottom_container)
+            tab1.add_widget(tab1_layout)
+            self.bottom_nav.add_widget(tab1)
+            
+            # === TAB 2: 本地播放中心 ===
+            tab2 = MDBottomNavigationItem(
+                name='screen_local',
+                text='本地播放',
+                icon='folder-music'
+            )
+            tab2_layout = MDBoxLayout(orientation="vertical")
+            
+            tab2_top = MDBoxLayout(orientation="horizontal", size_hint_y=None, height="48dp", padding=["20dp", "0dp", "20dp", "0dp"], md_bg_color=(1, 1, 1, 0.1))
+            tab2_top.add_widget(MDLabel(text="我下载的节目", font_style="H6", theme_text_color="Custom", text_color=(1,1,1,0.9)))
+            refresh_btn = CustomRectBtn("刷新列表", (1,1,1,0.15), self.load_local_files)
+            refresh_btn.size_hint_x = None
+            refresh_btn.width = "100dp"
+            refresh_btn.height = "32dp"
+            refresh_btn.pos_hint = {'center_y': .5}
+            tab2_top.add_widget(refresh_btn)
+            tab2_layout.add_widget(tab2_top)
+            
+            local_scroll = ScrollView()
+            self.local_list = MDList()
+            local_scroll.add_widget(self.local_list)
+            tab2_layout.add_widget(local_scroll)
+            
+            tab2.add_widget(tab2_layout)
+            self.bottom_nav.add_widget(tab2)
+            
+            # --- 绑定底部导航切换事件 ---
+            self.bottom_nav.bind(on_switch_tabs=self.on_tab_switch)
+            
+            overlay.add_widget(self.bottom_nav)
             
             self.init_date_menu()
             Clock.schedule_once(lambda dt: self.load_schedule(self.current_date), 0.5)
             
+            # 进度条定时器
+            Clock.schedule_interval(self.update_progress, 1.0)
+            
             return self.screen
+
+        def on_tab_switch(self, instance_bottom_navigation, instance_tab_item, *args):
+            if instance_tab_item.name == 'screen_local':
+                self.load_local_files(None)
+
+        def get_save_dir(self):
+            try:
+                from android.storage import primary_external_storage_path
+                save_dir = os.path.join(primary_external_storage_path(), "Download", "HubeiRadio")
+            except ImportError:
+                save_dir = os.path.abspath("downloads")
+            os.makedirs(save_dir, exist_ok=True)
+            return save_dir
+
+        def load_local_files(self, instance):
+            self.local_list.clear_widgets()
+            d = self.get_save_dir()
+            try:
+                files = os.listdir(d)
+                files.sort(reverse=True) # 最新的在前
+                for f in files:
+                    if f.endswith(".mp3") or f.endswith(".ts"):
+                        fp = os.path.join(d, f)
+                        sz = os.path.getsize(fp) / (1024*1024)
+                        
+                        item = TwoLineRightIconListItem(
+                            text=f,
+                            secondary_text=f"大小: {sz:.1f} MB",
+                            theme_text_color="Custom",
+                            text_color=(1, 1, 1, 0.9),
+                            secondary_theme_text_color="Custom",
+                            secondary_text_color=(1, 1, 1, 0.6),
+                            bg_color=(0, 0, 0, 0.2)
+                        )
+                        # 右侧删除按钮
+                        del_icon = IconRightWidget(
+                            icon="trash-can-outline",
+                            theme_text_color="Custom",
+                            text_color=(1, 0.3, 0.3, 0.9)
+                        )
+                        del_icon.bind(on_release=lambda x, p=fp, i=item: self.delete_local_file(p, i))
+                        item.add_widget(del_icon)
+                        item.bind(on_release=lambda x, p=fp: self.play_local_file(p))
+                        self.local_list.add_widget(item)
+                if not files:
+                    self.local_list.add_widget(MDLabel(text="暂无下载的节目", halign="center", theme_text_color="Custom", text_color=(1,1,1,0.6), size_hint_y=None, height="100dp"))
+            except Exception as e:
+                self.local_list.add_widget(MDLabel(text=f"读取失败: {e}", halign="center", theme_text_color="Custom", text_color=(1,0,0,0.8)))
+
+        def delete_local_file(self, filepath, item):
+            try:
+                if self.player.is_playing():
+                    self.stop_all()
+                os.remove(filepath)
+                self.local_list.remove_widget(item)
+            except Exception as e:
+                self.status_label.text = f"删除失败: {e}"
+
+        def play_local_file(self, filepath):
+            self.stop_all()
+            self.status_label.text = f"正在播放本地文件..."
+            self.player.play(filepath)
+            self.set_keep_screen_on(True)
+
+        def on_slider_down(self, instance, touch):
+            if instance.collide_point(*touch.pos):
+                self.is_seeking = True
+
+        def on_slider_up(self, instance, touch):
+            if self.is_seeking and instance.collide_point(*touch.pos):
+                if self.player and self.player.get_duration() > 0:
+                    target_ms = (instance.value / 100.0) * self.player.get_duration()
+                    self.player.seek(target_ms)
+                self.is_seeking = False
+
+        def format_time(self, ms):
+            s = int(ms / 1000)
+            m = s // 60
+            s = s % 60
+            return f"{m:02d}:{s:02d}"
+
+        def update_progress(self, dt):
+            if self.player and self.player.is_playing() and not self.is_seeking:
+                pos = self.player.get_position()
+                dur = self.player.get_duration()
+                if dur > 0:
+                    self.slider.value = (pos / dur) * 100
+                    self.time_current.text = self.format_time(pos)
+                    self.time_total.text = self.format_time(dur)
 
         def set_keep_screen_on(self, keep_on):
             try:
@@ -244,8 +420,7 @@ try:
         def on_date_select(self, date_str, label):
             self.menu.dismiss()
             self.current_date = date_str
-            date_label = label.split()[1] if " " in label else label
-            self.toolbar.title = f"湖北经典音乐广播 {date_label}"
+            self.date_label.text = f"📅 当前日期：{label}   [点击切换]"
             self.load_schedule(date_str)
 
         def load_schedule(self, date_str):
@@ -280,7 +455,7 @@ try:
             
             for item in self.list_item_widgets:
                 if item == clicked_item:
-                    item.md_bg_color = (1, 1, 1, 0.25) # 选中背景变亮
+                    item.md_bg_color = (1, 1, 1, 0.25)
                     item.title_label.text = f"▶ {item.prog['time']} - {item.prog['title']}"
                     item.title_label.text_color = get_color_from_hex("#60A5FA")
                     item.subtitle_label.text_color = get_color_from_hex("#93C5FD")
@@ -335,18 +510,9 @@ try:
             else:
                 self.status_label.text = "当前节目无回放资源，请点击'播放直播'"
 
-        def get_save_dir(self):
-            try:
-                from android.storage import primary_external_storage_path
-                save_dir = os.path.join(primary_external_storage_path(), "Download", "HubeiRadio")
-            except ImportError:
-                save_dir = os.path.abspath("downloads")
-            os.makedirs(save_dir, exist_ok=True)
-            return save_dir
-
         def download_replay(self, instance):
             if not self.selected_program:
-                self.status_label.text = "请先选择要下载的节目！"
+                self.status_label.text = "请先选择要极速缓存的节目！"
                 return
                 
             prog_id = self.selected_program.get('id')
@@ -366,14 +532,14 @@ try:
                 self.live_recorder.stop()
                 self.live_recorder = None
                 self.record_btn.update_state("录制直播", active=False)
-                self.status_label.text = "直播录制已保存至Download目录！"
+                self.status_label.text = "直播录制已保存，请前往【本地播放】查看"
             else:
                 url = "https://fs.hbfm.hbi.tv/live/jdyy.m3u8"
                 filename = f"LiveRecord_{datetime.now().strftime('%Y%m%d_%H%M%S')}.ts"
                 self.live_recorder = HLSRecorder(url, os.path.join(self.get_save_dir(), filename))
                 self.live_recorder.start()
                 self.record_btn.update_state("停止录制", active=True)
-                self.status_label.text = f"正在录制直播...\n保存至: {filename}"
+                self.status_label.text = f"🔴 正在录制直播..."
 
         def download_file_bg(self, url, save_path):
             filename = os.path.basename(save_path)
@@ -382,7 +548,7 @@ try:
             def _download():
                 try:
                     urllib.request.urlretrieve(url, save_path)
-                    self.update_status_safe(f"下载成功！已存至手机 Download 目录")
+                    self.update_status_safe(f"✅ 下载成功！请前往【本地播放】查看")
                 except Exception as e:
                     self.update_status_safe(f"下载失败: {e}")
                     

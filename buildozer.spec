@@ -23,3 +23,6 @@ android.entrypoint = org.kivy.android.PythonActivity
 [buildozer]
 log_level = 2
 warn_on_root = 1
+
+presplash.filename = %(source.dir)s/presplash.png
+icon.filename = %(source.dir)s/icon.png
