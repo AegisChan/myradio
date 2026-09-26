@@ -2,17 +2,16 @@ import traceback
 
 try:
     from kivy.core.text import LabelBase
-    # 全局注册细体中文字体
-    LabelBase.register(name="CustomFont", fn_regular="font.ttf")
+    # 全局注册中文字体为微软雅黑 (msyh.ttc)
+    LabelBase.register(name="CustomFont", fn_regular="msyh.ttc")
     
     from kivymd.app import MDApp
     from kivymd.uix.screen import MDScreen
     from kivymd.uix.boxlayout import MDBoxLayout
     from kivymd.uix.gridlayout import MDGridLayout
     from kivymd.uix.toolbar import MDTopAppBar
-    from kivymd.uix.list import MDList, TwoLineAvatarIconListItem, IconLeftWidget
     from kivymd.uix.menu import MDDropdownMenu
-    from kivymd.uix.label import MDLabel, MDIcon
+    from kivymd.uix.label import MDLabel
     from kivymd.uix.card import MDCard
     from kivymd.uix.fitimage import FitImage
     from kivy.uix.scrollview import ScrollView
@@ -20,7 +19,6 @@ try:
     from kivy.clock import mainthread
     from kivy.core.window import Window
     from kivy.utils import get_color_from_hex
-    from kivy.uix.behaviors import ButtonBehavior
     
     from datetime import datetime, timedelta
     import threading
@@ -33,82 +31,71 @@ try:
     from android_player import get_player
     from hls_recorder import HLSRecorder
     
-    # 完美自适应且居中的玻璃质感小圆角矩形按键
+    # 纯净极简的文字居中自适应按键
     class CustomRectBtn(MDCard):
-        def __init__(self, text, icon_str, bg_color, on_click, **kwargs):
+        def __init__(self, text, bg_color, on_click, **kwargs):
             super().__init__(**kwargs)
             self.size_hint_y = None
-            self.height = "40dp"
-            self.size_hint_x = 1 # 允许在 GridLayout 中等分拉伸
+            self.height = "42dp"
+            self.size_hint_x = 1 # 等分拉伸
             self.md_bg_color = bg_color
             self.radius = [8, 8, 8, 8] # 矩形+小圆倒角
             self.ripple_behavior = True
             self.elevation = 0
             
-            # 解决事件绑定少传 instance 的 Bug
             self.bind(on_release=on_click)
             
-            # 内部容器，确保图标和文字紧凑且整体居中
-            inner = MDBoxLayout(
-                orientation="horizontal", 
-                adaptive_width=True, 
-                spacing="5dp", 
-                pos_hint={'center_x': .5, 'center_y': .5}
-            )
-            
-            self.icon_widget = MDIcon(
-                icon=icon_str, 
-                theme_text_color="Custom", 
-                text_color=(1,1,1,0.9), 
-                pos_hint={'center_y': .5},
-                font_size="16sp"
-            )
             self.label_widget = MDLabel(
                 text=text, 
                 theme_text_color="Custom", 
                 text_color=(1,1,1,0.9), 
-                adaptive_width=True, 
-                font_style="Body2",
-                pos_hint={'center_y': .5}
+                halign="center", 
+                valign="center",
+                font_style="Body1"
             )
+            self.add_widget(self.label_widget)
             
-            inner.add_widget(self.icon_widget)
-            inner.add_widget(self.label_widget)
-            self.add_widget(inner)
-            
-        def update_state(self, text, icon_str, active=False):
+        def update_state(self, text, active=False):
             self.label_widget.text = text
-            self.icon_widget.icon = icon_str
             if active:
-                self.md_bg_color = (1, 1, 1, 0.3) # 激活时变亮
+                self.md_bg_color = (1, 1, 1, 0.35) # 激活时变亮
                 self.label_widget.text_color = get_color_from_hex("#60A5FA") # 亮蓝色
-                self.icon_widget.text_color = get_color_from_hex("#60A5FA")
             else:
                 self.md_bg_color = (1, 1, 1, 0.15) # 恢复原本半透明
                 self.label_widget.text_color = (1, 1, 1, 0.9)
-                self.icon_widget.text_color = (1, 1, 1, 0.9)
 
-    class ProgramListItem(TwoLineAvatarIconListItem):
+    # 自定义紧凑且偏左的节目列表项
+    class ProgramListItem(MDCard):
         def __init__(self, prog, app_instance, **kwargs):
             super().__init__(**kwargs)
             self.prog = prog
             self.app = app_instance
-            self.text = f"{prog['time']} - {prog['title']}"
-            self.secondary_text = f"主播: {prog['host']}"
-            
-            self.bg_color = (0, 0, 0, 0)
-            self.theme_text_color = "Custom"
-            self.text_color = (1, 1, 1, 0.9)
-            self.secondary_theme_text_color = "Custom"
-            self.secondary_text_color = (1, 1, 1, 0.6)
-            
-            self.icon_left = IconLeftWidget(
-                icon="music-circle-outline",
-                theme_text_color="Custom",
-                text_color=(1, 1, 1, 0.6)
-            )
-            self.add_widget(self.icon_left)
+            self.size_hint_y = None
+            self.height = "54dp" # 减少间距，更加紧凑
+            self.md_bg_color = (0, 0, 0, 0)
+            self.elevation = 0
+            self.ripple_behavior = True
+            self.padding = ["20dp", "8dp", "20dp", "8dp"] # 整体偏左对齐
             self.bind(on_release=self.on_click)
+            
+            self.layout = MDBoxLayout(orientation="vertical", spacing="2dp")
+            self.title_label = MDLabel(
+                text=f"{prog['time']} - {prog['title']}", 
+                font_style="Body1", 
+                theme_text_color="Custom", 
+                text_color=(1, 1, 1, 0.95),
+                halign="left"
+            )
+            self.subtitle_label = MDLabel(
+                text=f"主播: {prog['host']}", 
+                font_style="Caption", 
+                theme_text_color="Custom", 
+                text_color=(1, 1, 1, 0.6),
+                halign="left"
+            )
+            self.layout.add_widget(self.title_label)
+            self.layout.add_widget(self.subtitle_label)
+            self.add_widget(self.layout)
             
         def on_click(self, *args):
             self.app.on_program_select(self.prog, self)
@@ -124,12 +111,12 @@ try:
             self.theme_cls.material_style = "M3"
             self.theme_cls.theme_style = "Dark"
             
-            # 全局缩放字体
+            # 全局缩放字体，使用微软雅黑
             for style in self.theme_cls.font_styles.keys():
                 if style != "Icons":
                     self.theme_cls.font_styles[style][0] = "CustomFont"
                     orig_size = self.theme_cls.font_styles[style][1]
-                    self.theme_cls.font_styles[style][1] = int(orig_size * 0.85)
+                    self.theme_cls.font_styles[style][1] = int(orig_size * 0.9)
             
             self.player = get_player()
             self.live_recorder = None
@@ -144,31 +131,31 @@ try:
             bg_image = FitImage(source="background.png")
             self.screen.add_widget(bg_image)
             
-            # 遮罩
-            overlay = MDBoxLayout(md_bg_color=(0.05, 0.05, 0.1, 0.65), orientation='vertical')
+            # 遮罩: 大幅提升透明度 (0.65 -> 0.25)，让背景图更亮更通透
+            overlay = MDBoxLayout(md_bg_color=(0.0, 0.0, 0.05, 0.25), orientation='vertical')
             self.screen.add_widget(overlay)
             
             # 导航栏
             self.toolbar = MDTopAppBar(
                 title="湖北经典音乐广播 (今天)",
                 elevation=0,
-                md_bg_color=(0, 0, 0, 0.2),
+                md_bg_color=(0, 0, 0, 0.15),
                 specific_text_color=(1, 1, 1, 1),
                 right_action_items=[["calendar", lambda x: self.open_date_menu(x)]]
             )
             overlay.add_widget(self.toolbar)
             
-            # 列表
+            # 列表 (紧凑型布局)
             scroll = ScrollView()
-            self.list_view = MDList()
-            scroll.add_widget(self.list_view)
+            self.list_layout = MDBoxLayout(orientation="vertical", adaptive_height=True, spacing="2dp", padding=["0dp", "10dp", "0dp", "10dp"])
+            scroll.add_widget(self.list_layout)
             overlay.add_widget(scroll)
             
-            # 底部控制台：高度自适应
+            # 底部控制台
             bottom_container = MDBoxLayout(
                 size_hint_y=None, 
-                padding=["15dp", "10dp", "15dp", "20dp"],
-                md_bg_color=(0, 0, 0, 0.5), # 融入背景的半透明黑色
+                padding=["15dp", "10dp", "15dp", "25dp"],
+                md_bg_color=(0, 0, 0, 0.4), # 控制台区域稍暗，增强按键对比
                 orientation="vertical",
                 spacing="15dp"
             )
@@ -182,22 +169,22 @@ try:
                 theme_text_color="Custom",
                 text_color=(1, 1, 1, 0.8),
                 size_hint_y=None,
-                height="20dp",
-                font_style="Caption"
+                height="24dp",
+                font_style="Body2"
             )
             bottom_container.add_widget(self.status_label)
             
             # 4个均匀分布的按键 (2x2 网格)
-            btn_grid = MDGridLayout(cols=2, spacing="12dp", size_hint_y=None)
+            btn_grid = MDGridLayout(cols=2, spacing="15dp", size_hint_y=None)
             btn_grid.bind(minimum_height=btn_grid.setter('height'))
             
             # 同一色系（玻璃质感的高级白灰半透明）
             glass_color = (1, 1, 1, 0.15)
             
-            self.play_btn = CustomRectBtn("播放回放", "play-circle-outline", glass_color, self.toggle_play)
-            self.download_btn = CustomRectBtn("下载回放", "download-circle-outline", glass_color, self.download_replay)
-            self.live_btn = CustomRectBtn("播放直播", "radio", glass_color, self.play_live)
-            self.record_btn = CustomRectBtn("录制直播", "record-circle-outline", glass_color, self.record_live)
+            self.play_btn = CustomRectBtn("播放回放", glass_color, self.toggle_play)
+            self.download_btn = CustomRectBtn("下载回放", glass_color, self.download_replay)
+            self.live_btn = CustomRectBtn("播放直播", glass_color, self.play_live)
+            self.record_btn = CustomRectBtn("录制直播", glass_color, self.record_live)
             
             btn_grid.add_widget(self.play_btn)
             btn_grid.add_widget(self.download_btn)
@@ -273,7 +260,7 @@ try:
         @mainthread
         def update_ui_schedule(self, data):
             self.schedule_data = data
-            self.list_view.clear_widgets()
+            self.list_layout.clear_widgets()
             self.list_item_widgets.clear()
             
             if not data:
@@ -283,7 +270,7 @@ try:
             for prog in data:
                 item = ProgramListItem(prog=prog, app_instance=self)
                 self.list_item_widgets.append(item)
-                self.list_view.add_widget(item)
+                self.list_layout.add_widget(item)
                 
             self.status_label.text = "节目单加载完成"
 
@@ -293,23 +280,21 @@ try:
             
             for item in self.list_item_widgets:
                 if item == clicked_item:
-                    item.bg_color = (1, 1, 1, 0.2)
-                    item.text_color = get_color_from_hex("#93C5FD") # 淡蓝色
-                    item.secondary_text_color = get_color_from_hex("#BAE6FD")
-                    item.icon_left.icon = "music-circle"
-                    item.icon_left.text_color = get_color_from_hex("#93C5FD")
+                    item.md_bg_color = (1, 1, 1, 0.25) # 选中背景变亮
+                    item.title_label.text = f"▶ {item.prog['time']} - {item.prog['title']}"
+                    item.title_label.text_color = get_color_from_hex("#60A5FA")
+                    item.subtitle_label.text_color = get_color_from_hex("#93C5FD")
                 else:
-                    item.bg_color = (0, 0, 0, 0)
-                    item.text_color = (1, 1, 1, 0.9)
-                    item.secondary_text_color = (1, 1, 1, 0.6)
-                    item.icon_left.icon = "music-circle-outline"
-                    item.icon_left.text_color = (1, 1, 1, 0.6)
+                    item.md_bg_color = (0, 0, 0, 0)
+                    item.title_label.text = f"{item.prog['time']} - {item.prog['title']}"
+                    item.title_label.text_color = (1, 1, 1, 0.95)
+                    item.subtitle_label.text_color = (1, 1, 1, 0.6)
 
         def stop_all(self):
             if self.player.is_playing():
                 self.player.stop()
-            self.play_btn.update_state("播放回放", "play-circle-outline", active=False)
-            self.live_btn.update_state("播放直播", "radio", active=False)
+            self.play_btn.update_state("播放回放", active=False)
+            self.live_btn.update_state("播放直播", active=False)
             self.set_keep_screen_on(False)
 
         def play_live(self, instance):
@@ -321,7 +306,7 @@ try:
             self.stop_all()
             self.status_label.text = "正在连接直播源..."
             self.player.play("https://fs.hbfm.hbi.tv/live/jdyy.m3u8")
-            self.live_btn.update_state("停止直播", "stop-circle", active=True)
+            self.live_btn.update_state("停止直播", active=True)
             self.set_keep_screen_on(True)
 
         def toggle_play(self, instance):
@@ -345,7 +330,7 @@ try:
                 replay_url = f"https://fs.hbfm.hbi.tv/recorder/jdyy/{yyyymm}/{prog_id}.mp3"
                 self.status_label.text = f"正在缓冲回放: {self.selected_program['title']}..."
                 self.player.play(replay_url)
-                self.play_btn.update_state("停止回放", "stop-circle", active=True)
+                self.play_btn.update_state("停止回放", active=True)
                 self.set_keep_screen_on(True)
             else:
                 self.status_label.text = "当前节目无回放资源，请点击'播放直播'"
@@ -380,14 +365,14 @@ try:
             if self.live_recorder and self.live_recorder.is_recording:
                 self.live_recorder.stop()
                 self.live_recorder = None
-                self.record_btn.update_state("录制直播", "record-circle-outline", active=False)
+                self.record_btn.update_state("录制直播", active=False)
                 self.status_label.text = "直播录制已保存至Download目录！"
             else:
                 url = "https://fs.hbfm.hbi.tv/live/jdyy.m3u8"
                 filename = f"LiveRecord_{datetime.now().strftime('%Y%m%d_%H%M%S')}.ts"
                 self.live_recorder = HLSRecorder(url, os.path.join(self.get_save_dir(), filename))
                 self.live_recorder.start()
-                self.record_btn.update_state("停止录制", "stop-circle", active=True)
+                self.record_btn.update_state("停止录制", active=True)
                 self.status_label.text = f"正在录制直播...\n保存至: {filename}"
 
         def download_file_bg(self, url, save_path):
