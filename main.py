@@ -170,7 +170,7 @@ try:
             )
             self.date_banner.bind(on_release=self.open_date_menu)
             self.date_label = MDLabel(
-                text=f"📅 当前日期：{self.current_date} (今天)   [点击切换]",
+                text=f"[日期] 当前日期：{self.current_date} (今天)   [点击切换]",
                 halign="center",
                 valign="center",
                 theme_text_color="Custom",
@@ -246,7 +246,7 @@ try:
             tab2_layout = MDBoxLayout(orientation="vertical")
             
             tab2_top = MDBoxLayout(orientation="horizontal", size_hint_y=None, height="48dp", padding=["20dp", "0dp", "20dp", "0dp"], md_bg_color=(1, 1, 1, 0.1))
-            tab2_top.add_widget(MDLabel(text="我下载的节目", font_style="H6", theme_text_color="Custom", text_color=(1,1,1,0.9)))
+            tab2_top.add_widget(MDLabel(text="我下载的节目", font_style="Subtitle1", theme_text_color="Custom", text_color=(1,1,1,0.9)))
             refresh_btn = CustomRectBtn("刷新列表", (1,1,1,0.15), self.load_local_files)
             refresh_btn.size_hint_x = None
             refresh_btn.width = "100dp"
@@ -264,6 +264,10 @@ try:
             self.sm.add_widget(screen_local)
             
             overlay.add_widget(self.sm)
+            
+            # === 底部导航分隔线 ===
+            separator = MDBoxLayout(size_hint_y=None, height="1dp", md_bg_color=(1, 1, 1, 0.15))
+            overlay.add_widget(separator)
             
             # === 自定义紧凑且全透明背景的底边栏 ===
             self.tab_bar = MDBoxLayout(
@@ -446,7 +450,7 @@ try:
         def on_date_select(self, date_str, label):
             self.menu.dismiss()
             self.current_date = date_str
-            self.date_label.text = f"📅 当前日期：{label}   [点击切换]"
+            self.date_label.text = f"[日期] 当前日期：{label}   [点击切换]"
             self.load_schedule(date_str)
 
         def load_schedule(self, date_str):
@@ -565,7 +569,7 @@ try:
                 self.live_recorder = HLSRecorder(url, os.path.join(self.get_save_dir(), filename))
                 self.live_recorder.start()
                 self.record_btn.update_state("停止录制", active=True)
-                self.status_label.text = f"🔴 正在录制直播..."
+                self.status_label.text = f"[录制] 正在录制直播..."
 
         def download_file_bg(self, url, save_path):
             filename = os.path.basename(save_path)
@@ -574,7 +578,7 @@ try:
             def _download():
                 try:
                     urllib.request.urlretrieve(url, save_path)
-                    self.update_status_safe(f"✅ 下载成功！请前往【本地播放】查看")
+                    self.update_status_safe(f"[完成] 下载成功！请前往【本地播放】查看")
                 except Exception as e:
                     self.update_status_safe(f"下载失败: {e}")
                     
