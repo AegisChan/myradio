@@ -10,8 +10,7 @@ version = 1.0
 requirements = python3,kivy==2.3.0,kivymd==1.2.0,pyjnius,pillow,android
 p4a.branch = v2024.01.21
 
-# 砍掉导致崩溃的32位架构，只保留现代手机的64位
-android.archs = arm64-v8a
+# 砍掉导致崩溃�?2位架构，只保留现代手机的64�?android.archs = arm64-v8a
 
 orientation = portrait
 fullscreen = 0
@@ -24,5 +23,3 @@ android.entrypoint = org.kivy.android.PythonActivity
 log_level = 2
 warn_on_root = 1
 
-presplash.filename = %(source.dir)s/presplash.png
-icon.filename = %(source.dir)s/icon.png

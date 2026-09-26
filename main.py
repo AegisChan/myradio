@@ -15,7 +15,7 @@ try:
     from kivymd.uix.card import MDCard
     from kivymd.uix.fitimage import FitImage
     from kivy.uix.scrollview import ScrollView
-    from kivymd.uix.bottomnavigation import MDBottomNavigation, MDBottomNavigationItem
+    from kivy.uix.screenmanager import ScreenManager, Screen, FadeTransition
     from kivymd.uix.slider import MDSlider
     from kivymd.uix.list import MDList, TwoLineRightIconListItem, IconRightWidget
     from kivy.clock import Clock
@@ -118,8 +118,9 @@ try:
             self.theme_cls.material_style = "M3"
             self.theme_cls.theme_style = "Dark"
             
+            # 彻底修复图标变方块的问题：保留所有包含 'Icon' 字样的字体样式
             for style in self.theme_cls.font_styles.keys():
-                if style != "Icons":
+                if "Icon" not in style:
                     self.theme_cls.font_styles[style][0] = "CustomFont"
                     orig_size = self.theme_cls.font_styles[style][1]
                     self.theme_cls.font_styles[style][1] = int(orig_size * 0.9)
@@ -134,12 +135,12 @@ try:
             
             self.screen = MDScreen()
             
-            # 全局背景图
+            # 全局背景图 (底层)
             bg_image = FitImage(source="background.png")
             self.screen.add_widget(bg_image)
             
-            # 全局遮罩
-            overlay = MDBoxLayout(md_bg_color=(0.0, 0.0, 0.05, 0.3), orientation='vertical')
+            # 全局透明遮罩，保证无论切到哪个标签都能看到背景图
+            overlay = MDBoxLayout(md_bg_color=(0.0, 0.0, 0.05, 0.35), orientation='vertical')
             self.screen.add_widget(overlay)
             
             # 顶部导航栏 (无多余图标)
@@ -151,22 +152,15 @@ try:
             )
             overlay.add_widget(self.toolbar)
             
-            # --- 底部导航栏 (Bottom Navigation) ---
-            self.bottom_nav = MDBottomNavigation(
-                panel_color=(0.1, 0.1, 0.1, 0.8),
-                selected_color_background=(0, 0, 0, 0),
-                text_color_active=get_color_from_hex("#60A5FA")
-            )
+            # --- 使用自定义 ScreenManager 代替死板的 MDBottomNavigation ---
+            # 这可以保证背景全透明，并且高度完全受控
+            self.sm = ScreenManager(transition=FadeTransition(duration=0.2))
             
             # === TAB 1: 频道大厅 ===
-            tab1 = MDBottomNavigationItem(
-                name='screen_radio',
-                text='频道大厅',
-                icon='radio'
-            )
+            screen_radio = Screen(name='screen_radio')
             tab1_layout = MDBoxLayout(orientation="vertical")
             
-            # 宽大醒目的日期选择横幅
+            # 日期选择横幅
             self.date_banner = ClickableBanner(
                 orientation="horizontal", 
                 size_hint_y=None, 
@@ -196,7 +190,7 @@ try:
             bottom_container = MDBoxLayout(
                 size_hint_y=None, 
                 padding=["15dp", "5dp", "15dp", "15dp"],
-                md_bg_color=(0, 0, 0, 0.5),
+                md_bg_color=(0, 0, 0, 0.4),
                 orientation="vertical",
                 spacing="5dp"
             )
@@ -244,15 +238,11 @@ try:
             
             bottom_container.add_widget(btn_grid)
             tab1_layout.add_widget(bottom_container)
-            tab1.add_widget(tab1_layout)
-            self.bottom_nav.add_widget(tab1)
+            screen_radio.add_widget(tab1_layout)
+            self.sm.add_widget(screen_radio)
             
             # === TAB 2: 本地播放中心 ===
-            tab2 = MDBottomNavigationItem(
-                name='screen_local',
-                text='本地播放',
-                icon='folder-music'
-            )
+            screen_local = Screen(name='screen_local')
             tab2_layout = MDBoxLayout(orientation="vertical")
             
             tab2_top = MDBoxLayout(orientation="horizontal", size_hint_y=None, height="48dp", padding=["20dp", "0dp", "20dp", "0dp"], md_bg_color=(1, 1, 1, 0.1))
@@ -270,13 +260,30 @@ try:
             local_scroll.add_widget(self.local_list)
             tab2_layout.add_widget(local_scroll)
             
-            tab2.add_widget(tab2_layout)
-            self.bottom_nav.add_widget(tab2)
+            screen_local.add_widget(tab2_layout)
+            self.sm.add_widget(screen_local)
             
-            # --- 绑定底部导航切换事件 ---
-            self.bottom_nav.bind(on_switch_tabs=self.on_tab_switch)
+            overlay.add_widget(self.sm)
             
-            overlay.add_widget(self.bottom_nav)
+            # === 自定义紧凑且全透明背景的底边栏 ===
+            self.tab_bar = MDBoxLayout(
+                orientation="horizontal",
+                size_hint_y=None,
+                height="45dp", # 比原生的 56dp 小很多，节省空间
+                md_bg_color=(0, 0, 0, 0.6) # 黑色半透明，与背景完美融合
+            )
+            
+            self.tab_btn_radio = CustomRectBtn("频道大厅", (1,1,1,0.25), lambda x: self.switch_tab('screen_radio'))
+            self.tab_btn_radio.radius = [0, 0, 0, 0] # 纯平无圆角
+            self.tab_btn_radio.label_widget.text_color = get_color_from_hex("#60A5FA") # 默认选中高亮
+            
+            self.tab_btn_local = CustomRectBtn("本地播放", (0,0,0,0), lambda x: self.switch_tab('screen_local'))
+            self.tab_btn_local.radius = [0, 0, 0, 0]
+            
+            self.tab_bar.add_widget(self.tab_btn_radio)
+            self.tab_bar.add_widget(self.tab_btn_local)
+            
+            overlay.add_widget(self.tab_bar)
             
             self.init_date_menu()
             Clock.schedule_once(lambda dt: self.load_schedule(self.current_date), 0.5)
@@ -286,8 +293,18 @@ try:
             
             return self.screen
 
-        def on_tab_switch(self, instance_bottom_navigation, instance_tab_item, *args):
-            if instance_tab_item.name == 'screen_local':
+        def switch_tab(self, tab_name):
+            self.sm.current = tab_name
+            if tab_name == 'screen_radio':
+                self.tab_btn_radio.md_bg_color = (1, 1, 1, 0.25)
+                self.tab_btn_radio.label_widget.text_color = get_color_from_hex("#60A5FA")
+                self.tab_btn_local.md_bg_color = (0, 0, 0, 0)
+                self.tab_btn_local.label_widget.text_color = (1, 1, 1, 0.9)
+            else:
+                self.tab_btn_local.md_bg_color = (1, 1, 1, 0.25)
+                self.tab_btn_local.label_widget.text_color = get_color_from_hex("#60A5FA")
+                self.tab_btn_radio.md_bg_color = (0, 0, 0, 0)
+                self.tab_btn_radio.label_widget.text_color = (1, 1, 1, 0.9)
                 self.load_local_files(None)
 
         def get_save_dir(self):
@@ -305,8 +322,10 @@ try:
             try:
                 files = os.listdir(d)
                 files.sort(reverse=True) # 最新的在前
+                count = 0
                 for f in files:
                     if f.endswith(".mp3") or f.endswith(".ts"):
+                        count += 1
                         fp = os.path.join(d, f)
                         sz = os.path.getsize(fp) / (1024*1024)
                         
@@ -329,8 +348,15 @@ try:
                         item.add_widget(del_icon)
                         item.bind(on_release=lambda x, p=fp: self.play_local_file(p))
                         self.local_list.add_widget(item)
-                if not files:
-                    self.local_list.add_widget(MDLabel(text="暂无下载的节目", halign="center", theme_text_color="Custom", text_color=(1,1,1,0.6), size_hint_y=None, height="100dp"))
+                if count == 0:
+                    self.local_list.add_widget(MDLabel(
+                        text=f"暂无下载的节目\n(如已下载，请确认是否有权限读取)\n路径:\n{d}", 
+                        halign="center", 
+                        theme_text_color="Custom", 
+                        text_color=(1,1,1,0.6), 
+                        size_hint_y=None, 
+                        height="120dp"
+                    ))
             except Exception as e:
                 self.local_list.add_widget(MDLabel(text=f"读取失败: {e}", halign="center", theme_text_color="Custom", text_color=(1,0,0,0.8)))
 
