@@ -118,7 +118,7 @@ icon.filename = %(source.dir)s/icon.png
 
 
 
-android.presplash_color = #74a9d4
+android.presplash_color = #7db5f8
 
 
 

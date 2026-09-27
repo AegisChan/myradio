@@ -13,7 +13,7 @@ try:
     from kivymd.uix.menu import MDDropdownMenu
     from kivymd.uix.label import MDLabel
     from kivymd.uix.card import MDCard
-    from kivy.uix.image import Image
+    from kivymd.uix.fitimage import FitImage
     from kivy.uix.scrollview import ScrollView
     from kivy.uix.screenmanager import ScreenManager, Screen, NoTransition
     from kivymd.uix.slider import MDSlider
@@ -133,10 +133,10 @@ try:
             self.list_item_widgets = []
             self.is_seeking = False
             
-            self.screen = MDScreen()
+            self.screen = MDScreen(md_bg_color=(125/255.0, 181/255.0, 248/255.0, 1))
             
             # 全局背景图 (底层)
-            bg_image = Image(source="background.png", allow_stretch=True, keep_ratio=False)
+            bg_image = FitImage(source="background.png")
             self.screen.add_widget(bg_image)
             
             # 全局透明遮罩，保证无论切到哪个标签都能看到背景图
