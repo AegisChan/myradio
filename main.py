@@ -214,6 +214,8 @@ try:
             
             # 节目列表
             scroll = ScrollView()
+            scroll.scroll_distance = dp(5)
+            scroll.scroll_timeout = 250
             self.list_layout = MDBoxLayout(orientation="vertical", adaptive_height=True, spacing="2dp", padding=["0dp", "5dp", "0dp", "5dp"])
             scroll.add_widget(self.list_layout)
             tab1_layout.add_widget(scroll)
@@ -288,6 +290,10 @@ try:
             tab2_layout.add_widget(tab2_top)
             
             local_scroll = ScrollView()
+            local_scroll.scroll_distance = dp(5)
+            local_scroll.scroll_timeout = 250
+            scroll.scroll_distance = dp(5)
+            scroll.scroll_timeout = 250
             self.local_list = MDList()
             local_scroll.add_widget(self.local_list)
             tab2_layout.add_widget(local_scroll)
