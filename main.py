@@ -21,7 +21,7 @@ try:
     from kivymd.uix.list import MDList, TwoLineRightIconListItem, IconRightWidget
     from kivy.clock import Clock
     from kivy.clock import mainthread
-from kivy.animation import Animation
+    from kivy.animation import Animation
     from kivy.core.window import Window
     from kivy.utils import get_color_from_hex
     from kivy.uix.behaviors import ButtonBehavior
