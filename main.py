@@ -162,7 +162,7 @@ try:
             self.list_item_widgets = []
             self.is_seeking = False
             
-            self.screen = MDScreen(md_bg_color=(125/255.0, 181/255.0, 248/255.0, 1))
+            self.screen = MDScreen(md_bg_color=(160/255.0, 200/255.0, 250/255.0, 1))
             
             # 全局背景图 (底层)
             bg_image = FitImage(source="background.png")
@@ -621,7 +621,7 @@ try:
     if __name__ == "__main__":
         RadioApp().run()
 
-except BaseException as e:
+except Exception as e:
     err = traceback.format_exc()
     err_url = ""
     try:
