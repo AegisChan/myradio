@@ -15,7 +15,7 @@ try:
     from kivymd.uix.card import MDCard
     from kivymd.uix.fitimage import FitImage
     from kivy.uix.scrollview import ScrollView
-    from kivy.uix.screenmanager import ScreenManager, Screen, FadeTransition
+    from kivy.uix.screenmanager import ScreenManager, Screen, NoTransition
     from kivymd.uix.slider import MDSlider
     from kivymd.uix.list import MDList, TwoLineRightIconListItem, IconRightWidget
     from kivy.clock import Clock
@@ -153,8 +153,8 @@ try:
             overlay.add_widget(self.toolbar)
             
             # --- 使用自定义 ScreenManager 代替死板的 MDBottomNavigation ---
-            # 这可以保证背景全透明，并且高度完全受控
-            self.sm = ScreenManager(transition=FadeTransition(duration=0.2))
+            # 使用 NoTransition 防止透明屏幕在切换时渲染黑色FBO背景
+            self.sm = ScreenManager(transition=NoTransition())
             
             # === TAB 1: 频道大厅 ===
             screen_radio = Screen(name='screen_radio')

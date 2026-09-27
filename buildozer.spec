@@ -28,7 +28,8 @@ p4a.branch = v2024.01.21
 
 orientation = portrait
 icon.filename = %(source.dir)s/icon.png
-presplash.filename = %(source.dir)s/presplash.png
+android.presplash_color = #74a9d4
+presplash.filename = %(source.dir)s/background.png
 
 fullscreen = 0
 
