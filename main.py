@@ -644,7 +644,8 @@ except Exception as e:
         context = PythonActivity.mActivity
         @run_on_ui_thread
         def _show():
-            msg = f"Crash logs sent to: {err_url}" if err_url else "Crash network failed!"
+            err_summary = str(err).splitlines()[-1][:150] if err else "Unknown error"
+            msg = f"Crash: {err_summary}"
             Toast.makeText(context, String(msg), Toast.LENGTH_LONG).show()
             Toast.makeText(context, String(msg), Toast.LENGTH_LONG).show()
         _show()
