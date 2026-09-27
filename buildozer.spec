@@ -210,3 +210,5 @@ warn_on_root = 1
 
 
 
+
+android.meta_data = notch.config=portrait|landscape, android.notch_support=true, android.max_aspect=2.1
