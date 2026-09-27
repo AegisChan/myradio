@@ -21,7 +21,6 @@ try:
     from kivymd.uix.list import MDList, TwoLineRightIconListItem, IconRightWidget
     from kivy.clock import Clock
     from kivy.clock import mainthread
-    from kivy.animation import Animation
     from kivy.core.window import Window
     from kivy.utils import get_color_from_hex
     from kivy.uix.behaviors import ButtonBehavior
@@ -167,19 +166,11 @@ try:
             
             # 全局背景图 (底层)
             bg_image = FitImage(source="background.png")
-            bg_image.opacity = 0
             self.screen.add_widget(bg_image)
             
             # 全局透明遮罩，保证无论切到哪个标签都能看到背景图
             overlay = MDBoxLayout(md_bg_color=(0.0, 0.0, 0.05, 0.35), orientation='vertical')
-            overlay.opacity = 0
             self.screen.add_widget(overlay)
-            
-            # 优雅淡入动画
-            def fade_in_ui(dt):
-                Animation(opacity=1, d=0.8, t='out_cubic').start(bg_image)
-                Animation(opacity=1, d=0.8, t='out_cubic').start(overlay)
-            Clock.schedule_once(fade_in_ui, 0.1)
             
             # 顶部导航栏 (无多余图标)
             self.toolbar = MDTopAppBar(
