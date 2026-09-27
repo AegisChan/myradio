@@ -22,14 +22,14 @@ p4a.branch = v2024.01.21
 
 
 
-# 砍掉导致崩溃�?2位架构，只保留现代手机的64�?android.archs = arm64-v8a
+# 砍掉导致崩溃�?2位架构，只保留现代手机的64�?android.archs = arm64-v8a
 
 
 
 orientation = portrait
 icon.filename = %(source.dir)s/icon.png
 android.presplash_color = #74a9d4
-presplash.filename = %(source.dir)s/background.png
+#presplash.filename = 
 
 fullscreen = 0
 
