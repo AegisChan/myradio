@@ -182,8 +182,10 @@ try:
             overlay.add_widget(self.toolbar)
             
             # --- 使用自定义 ScreenManager 代替死板的 MDBottomNavigation ---
-            # 使用 NoTransition 防止透明屏幕在切换时渲染黑色FBO背景
             self.sm = Carousel(direction="right")
+            from kivy.metrics import dp
+            self.sm.scroll_distance = dp(60)
+            self.sm.scroll_timeout = 200
             self.sm.bind(current_slide=self.on_slide_changed)
             
             # === TAB 1: 频道大厅 ===
