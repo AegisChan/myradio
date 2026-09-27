@@ -327,8 +327,21 @@ try:
             
             return self.screen
 
+        def on_slide_changed(self, instance, slide):
+            if slide.name == 'screen_radio':
+                self.update_tab_ui('screen_radio')
+            elif slide.name == 'screen_local':
+                self.update_tab_ui('screen_local')
+                self.load_local_files(None)
+
         def switch_tab(self, tab_name):
-            self.sm.current = tab_name
+            for slide in self.sm.slides:
+                if slide.name == tab_name:
+                    self.sm.load_slide(slide)
+                    break
+            self.update_tab_ui(tab_name)
+
+        def update_tab_ui(self, tab_name):
             if tab_name == 'screen_radio':
                 self.tab_btn_radio.md_bg_color = (1, 1, 1, 0.25)
                 self.tab_btn_radio.label_widget.text_color = get_color_from_hex("#60A5FA")
