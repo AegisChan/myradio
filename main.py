@@ -114,6 +114,34 @@ try:
                 request_permissions([Permission.INTERNET, Permission.READ_EXTERNAL_STORAGE, Permission.WRITE_EXTERNAL_STORAGE])
             except Exception:
                 pass
+                
+            try:
+                from kivy.utils import platform
+                if platform == 'android':
+                    from jnius import autoclass
+                    from android.runnable import run_on_ui_thread
+                    PythonActivity = autoclass('org.kivy.android.PythonActivity')
+                    View = autoclass('android.view.View')
+                    
+                    @run_on_ui_thread
+                    def immersive_mode():
+                        activity = PythonActivity.mActivity
+                        window = activity.getWindow()
+                        if autoclass('android.os.Build$VERSION').SDK_INT >= 28:
+                            params = window.getAttributes()
+                            params.layoutInDisplayCutoutMode = 1 # LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES
+                            window.setAttributes(params)
+                        window.getDecorView().setSystemUiVisibility(
+                            View.SYSTEM_UI_FLAG_LAYOUT_STABLE
+                            | View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
+                            | View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN
+                            | View.SYSTEM_UI_FLAG_HIDE_NAVIGATION
+                            | View.SYSTEM_UI_FLAG_FULLSCREEN
+                            | View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
+                        )
+                    immersive_mode()
+            except Exception as e:
+                print('Immersive mode failed:', e)
 
             self.theme_cls.material_style = "M3"
             self.theme_cls.theme_style = "Dark"
