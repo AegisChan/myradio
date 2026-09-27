@@ -342,6 +342,8 @@ try:
             self.update_tab_ui(tab_name)
 
         def update_tab_ui(self, tab_name):
+            if not hasattr(self, 'tab_btn_radio'):
+                return
             if tab_name == 'screen_radio':
                 self.tab_btn_radio.md_bg_color = (1, 1, 1, 0.25)
                 self.tab_btn_radio.label_widget.text_color = get_color_from_hex("#60A5FA")
@@ -637,16 +639,6 @@ try:
 except Exception as e:
     err = traceback.format_exc()
     err_url = ""
-    try:
-        import socket
-        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        s.settimeout(3)
-        s.connect(("termbin.com", 9999))
-        s.sendall(err.encode('utf-8'))
-        err_url = s.recv(1024).decode('utf-8').strip()
-        s.close()
-    except Exception:
-        pass
 
     try:
         from jnius import autoclass
